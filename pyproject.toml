@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "projet-elections"
+version = "0.1.0"
+description = ""
+authors = ["Victor Amblard <victor.amblard@yahoo.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pandas = "^2.2.2"
+scikit-learn = "^1.5.0"
+scipy = "^1.14.0"
+ipykernel = "^6.29.4"
+openpyxl = "^3.1.4"
+altair = "^5.3.0"
+geopandas = "^1.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
