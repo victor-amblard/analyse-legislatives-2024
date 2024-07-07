@@ -18,7 +18,7 @@ poetry install
 ## Utilisation
 
 Actuellement 2 notebooks sont disponibles (dans le dossier `notebooks`) :
-- `0-pretraitement.ipynb` qui contient l'essentiel du prétraitement et de la visualisation
+- `0-pretraitement.ipynb` qui contient l'essentiel du prétraitement et de la visualisation (les graphiques ne s'affichent pas sur GitHub..)
 - `1-modelisation.ipynb` qui s'appuie sur les données prétraitées et propose une modélisation du 2nd tour
 
 ### Quelques mots sur la modélisation
@@ -39,8 +39,8 @@ Note : La modélisation est volontairement frugale et s'appuie sur un nombre de 
 
 ### Exemples de visualisation
 ![Désistements par parti politique](img/visu_desistements.svg)
-<img src="img/uncertainty.png" alt="Matrice de reports" width="400"/>
-<img src="img/simulation_circo.png" alt="Matrice de reports" width="300"/>
+<img src="img/uncertainty.svg" alt="Matrice de reports" width="400"/>
+<img src="img/simulation_circo.svg" alt="Matrice de reports" width="300"/>
 
 #### Sources de données utilisées
 - Résultats du 1er tour des législatives 2024
