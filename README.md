@@ -35,6 +35,9 @@ où sont regroupés sous les différents sigles :
 
 Des simulations sont ensuite réalisées en échantillonnant autour de 4 hyperparamètres $\overline{\alpha_1}, \overline{\alpha_2}, \overline{\alpha_3}, \overline{\alpha_4}$ qui pourraient être calibrés à l'aide des résultats des précédentes élections législatives.
 
+Les hyperparamètres choisis sont les suivants
+<img src="img/hyperparametres.png" alt="Matrice de reports" width="300"/>
+
 Note : La modélisation est volontairement frugale et s'appuie sur un nombre de paramètres très limité. Par ailleurs la calibration des paramètres pourrait être améliorée
 
 ### Exemples de visualisation
