@@ -23,7 +23,7 @@ Actuellement 2 notebooks sont disponibles (dans le dossier `notebooks`) :
 
 ### Quelques mots sur la modélisation
 L'objectif était de trouver une modélisation la plus simple possible, tout en étant un minimum réaliste. Les paramètres déterminants dans l'estimation des résultats du 2nd tour sont les taux de reports par parti.
-Pour simplifier la tâche, seuls 3 taux de report ($\alpha_1, \alpha_2, \alpha_3, \alpha_4$) sont estimés comme illustré ci-dessous
+Pour simplifier la tâche, seuls 9 taux de report sont estimés comme illustré ci-dessous
 
 <img src="img/matrice_reports.png" alt="Matrice de reports" width="400"/>
 
@@ -33,12 +33,14 @@ où sont regroupés sous les différents sigles :
 - `LR+`= `LR` + `DVD`
 - `RN+` = `RN` + `UXD` + `DSV` + `REC`
 
-Des simulations sont ensuite réalisées en échantillonnant autour de 3 hyperparamètres $\overline{\alpha_1}, \overline{\alpha_2}, \overline{\alpha_3}, \overline{\alpha_4}$ qui pourraient être calibrés à l'aide des résultats des précédentes élections législatives.
+Des simulations sont ensuite réalisées en échantillonnant autour de 4 hyperparamètres $\overline{\alpha_1}, \overline{\alpha_2}, \overline{\alpha_3}, \overline{\alpha_4}$ qui pourraient être calibrés à l'aide des résultats des précédentes élections législatives.
 
 Note : La modélisation est volontairement frugale et s'appuie sur un nombre de paramètres très limité. Par ailleurs la calibration des paramètres pourrait être améliorée
 
 ### Exemples de visualisation
 ![Désistements par parti politique](img/visu_desistements.svg)
+<img src="img/uncertainty.png" alt="Matrice de reports" width="400"/>
+<img src="img/simulation_circo.png" alt="Matrice de reports" width="300"/>
 
 #### Sources de données utilisées
 - Résultats du 1er tour des législatives 2024
