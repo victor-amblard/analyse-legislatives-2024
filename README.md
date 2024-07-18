@@ -1,6 +1,6 @@
 # Analyse des données publiques sur les élections législatives 2024
 
-Ce dépôt propose une **exploration** des données électorales disponibles en _open data_ ainsi qu'une **modélisation simplifiée** des reports de voix afin d'effectuer des projections sur le nombre de sièges.
+Ce dépôt propose une **exploration** des données électorales disponibles en _open data_ ainsi qu'une **modélisation simplifiée** des reports de voix afin d'effectuer des projections sur le nombre de sièges (et le nombre de voix).
 
 Toutes les données sont issues du site data.gouv.fr (sous Licence Ouverte).
 
@@ -23,22 +23,23 @@ Actuellement 2 notebooks sont disponibles (dans le dossier `notebooks`) :
 
 ### Quelques mots sur la modélisation
 L'objectif était de trouver une modélisation la plus simple possible, tout en étant un minimum réaliste. Les paramètres déterminants dans l'estimation des résultats du 2nd tour sont les taux de reports par parti.
-Pour simplifier la tâche, seuls 9 taux de report sont estimés comme illustré ci-dessous
+Pour simplifier la tâche, seuls 9 taux de report sont estimés comme illustré ci-dessous.
 
 <img src="img/matrice_reports.png" alt="Matrice de reports" width="400"/>
 
-où sont regroupés sous les différents sigles : 
+où sont regroupés sous les différents sigles :
 - `NFP+` = `UG` + `UDG` + `FI` + `ECO` + `COM` + `EXG`
 - `ENS+` = `ENS` + `UDI` + `HOR` + `DVC`
-- `LR+`= `LR` + `DVD`
+- `LR+` = `LR` + `DVD`
 - `RN+` = `RN` + `UXD` + `DSV` + `REC`
 
-Des simulations sont ensuite réalisées en échantillonnant autour de 4 hyperparamètres $\overline{\alpha_1}, \overline{\alpha_2}, \overline{\alpha_3}, \overline{\alpha_4}$ qui pourraient être calibrés à l'aide des résultats des précédentes élections législatives.
+Des simulations sont ensuite réalisées en échantillonnant les taux de report autour de 9 hyperparamètres $\overline{\alpha_1}, ..., \overline{\alpha_9}$ qui pourraient être calibrés à l'aide des résultats des précédentes élections législatives mais sont ici fixés manuellement (ils peuvent être aisément changés, comme indiqué dans les notebooks).
+Dans le notebook, 5000 simulations sont effectuées en environ 3 minutes.
 
 Les hyperparamètres choisis sont les suivants
 <img src="img/hyperparametres.png" alt="Matrice de reports" width="300"/>
 
-Note : La modélisation est volontairement frugale et s'appuie sur un nombre de paramètres très limité. Par ailleurs la calibration des paramètres pourrait être améliorée
+Note : La modélisation est volontairement frugale et s'appuie sur un nombre de paramètres très limité. Par ailleurs la calibration des paramètres pourrait être améliorée.
 
 ### Exemples de visualisation
 ![Désistements par parti politique](img/visu_desistements.svg)
