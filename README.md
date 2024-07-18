@@ -18,8 +18,9 @@ poetry install
 ## Utilisation
 
 Actuellement 2 notebooks sont disponibles (dans le dossier `notebooks`) :
-- `0-pretraitement.ipynb` qui contient l'essentiel du prétraitement et de la visualisation (les graphiques ne s'affichent pas sur GitHub..)
+- `0-pretraitement.ipynb` qui contient l'essentiel du prétraitement et de la visualisation (pour voir les graphiques sur GitHub il est nécessaire d'ouvrir la version HTML des notebooks)
 - `1-modelisation.ipynb` qui s'appuie sur les données prétraitées et propose une modélisation du 2nd tour
+
 
 ### Quelques mots sur la modélisation
 L'objectif était de trouver une modélisation la plus simple possible, tout en étant un minimum réaliste. Les paramètres déterminants dans l'estimation des résultats du 2nd tour sont les taux de reports par parti.
