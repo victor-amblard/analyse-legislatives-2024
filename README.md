@@ -42,6 +42,21 @@ Les hyperparamètres choisis sont les suivants
 
 Note : La modélisation est volontairement frugale et s'appuie sur un nombre de paramètres très limité. Par ailleurs la calibration des paramètres pourrait être améliorée.
 
+### Utilisation sur d'autres élections
+
+Pour utiliser le modèle sur d'autres élections il suffit de fournir sous format standardisé, les résultats d'un premier tour. Pour ce faire il faut créer un objet `CirconscriptionResult` qui doit contenir les résultats en nombre de voix ainsi que les partis toujours en lice, puis créer un modèle comme suit (en précisant les hyperparamètres choisis pour les taux de report).
+
+```
+from analyse_legislatives.circonscription import CirconscriptionPrediction
+from analyse_legislatives.model import StatisticalModel
+
+model = StatisticalModel(hyperparameters)
+detailed_results = model.predict_all_circonscriptions(first_round_results)
+seats_by_party = CirconscriptionPrediction.agregate_by_party(detailed_results)
+```
+Le format de sortie de `seats_by_party` est une liste d'objets `CirconscriptionPrediction` qui représente les projections pour une circonscription donnée et contient une estimation du nombre de voix pour chacun des partis.
+
+
 ### Exemples de visualisation
 ![Désistements par parti politique](img/visu_desistements.svg)
 <img src="img/uncertainty.svg" alt="Matrice de reports" width="400"/>
@@ -52,3 +67,8 @@ Note : La modélisation est volontairement frugale et s'appuie sur un nombre de 
 - Candidatures pour le 2nd tour des législatives 2024
 - Contour des circonscriptions
 - Statistiques socio-démographiques sur les circonscriptions
+
+
+#### TODO
+- Fit du modèle en MLE sur les vrais résultats des élections
+- Nombre de simulations adaptatif selon l'incertitude de la circonscription
