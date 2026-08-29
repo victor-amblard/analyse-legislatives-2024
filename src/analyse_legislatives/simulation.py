@@ -79,6 +79,7 @@ def prior_predictive_median_matrix(
     model: Model,
     districts: Sequence[CirconscriptionResult],
     n_simus: int | None = None,
+    progress: ProgressCallback | None = None,
 ) -> TransferMatrix:
     """
     Matrice des médianes de la prédictive a priori — un résumé lisible du modèle,
@@ -93,7 +94,7 @@ def prior_predictive_median_matrix(
         from analyse_legislatives.config import DEFAULT_N_SIMUS
 
         n_simus = DEFAULT_N_SIMUS
-    marginal, _ = prior_predictive_rates(model, districts, n_simus)
+    marginal, _ = prior_predictive_rates(model, districts, n_simus, progress)
     medians = np.median(marginal, axis=0)
     rates: dict = {}
     for (source, target), value in zip(model.matrix_cells, medians):

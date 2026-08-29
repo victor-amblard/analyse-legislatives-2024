@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-08-29T08:51:24.317435+00:00",
+  "generated_at_utc": "2026-08-29T15:46:29.303897+00:00",
   "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 17.0.0 (clang-1700.6.4.2)]",
   "seed": 20240707,
   "n_simulations": 2000,
@@ -9,6 +9,8 @@
     "kernel_anchored"
   ],
   "figures": true,
+  "app_artifact_generated": true,
+  "app_artifact_dir": "artifacts/app",
   "kernel_sensitivity_recomputed": false,
   "prior_simulations_per_alpha": 3000,
   "kernel_sensitivity_simulations_per_cell": null,

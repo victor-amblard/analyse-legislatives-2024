@@ -60,6 +60,58 @@ class TransferMatrix:
     les familles sauf ENS+). Y glisser une diagonale casserait l'invariant « la
     ligne somme à 1 » sur lequel repose le tirage multinomial."""
 
+    unavailable_targets: frozenset[Destination] = field(
+        default_factory=frozenset, repr=False
+    )
+    """Destinations absentes du bulletin après normalisation.
+
+    Cette information ne se déduit pas des taux nuls : un transfert possible
+    peut valoir exactement zéro.
+    """
+
+    def __str__(self) -> str:
+        """Table lisible des taux, en pourcentage et dans l'ordre canonique."""
+        order = list(DESTINATIONS)
+        labels = {destination: str(destination) for destination in order}
+        source_width = max(len("source"), *(len(value) for value in labels.values()))
+        column_widths = {
+            destination: max(len(labels[destination]), len("100.0%"))
+            for destination in order
+        }
+
+        header = (
+            "source".ljust(source_width)
+            + "  "
+            + "  ".join(labels[target].rjust(column_widths[target]) for target in order)
+        )
+        lines = ["TransferMatrix", header, "─" * len(header)]
+
+        for source in order:
+            row = self.rates.get(source, {})
+            cells = []
+            for target in order:
+                width = column_widths[target]
+                if target in self.unavailable_targets:
+                    value = "/"
+                elif source == target and source != NON_EXPRIMES and target not in row:
+                    value = "—"
+                elif target not in row:
+                    value = "·"
+                else:
+                    value = f"{float(row[target]):.1%}"
+                cells.append(value.rjust(width))
+            lines.append(labels[source].ljust(source_width) + "  " + "  ".join(cells))
+
+        if self.own_retentions:
+            retention = ", ".join(
+                f"{labels[party]}={float(self.own_retentions[party]):.1%}"
+                for party in order
+                if party in self.own_retentions
+            )
+            lines.extend(("", f"own retention: {retention}"))
+
+        return "\n".join(lines)
+
     def to_matrix(self, order: Sequence[Destination] | None = None) -> np.ndarray:
         """
         Matrice carrée dense, indexée dans `order` (par défaut l'ordre canonique
@@ -84,27 +136,37 @@ class TransferMatrix:
 
     @classmethod
     def from_matrix(
-        cls, matrix: np.ndarray, order: Sequence[Destination] | None = None
+        cls,
+        matrix: np.ndarray,
+        order: Sequence[Destination] | None = None,
+        *,
+        unavailable_targets: frozenset[Destination] = frozenset(),
     ) -> "TransferMatrix":
         """Inverse de `to_matrix`."""
         order = list(DESTINATIONS if order is None else order)
         return cls(
-            {
+            rates={
                 source: {target: matrix[i, j] for j, target in enumerate(order)}
                 for i, source in enumerate(order)
-            }
+            },
+            unavailable_targets=unavailable_targets,
         )
 
     def mix(self, other: "TransferMatrix", weight: float) -> "TransferMatrix":
         """Combinaison convexe cellule à cellule : `weight * self + (1 - weight) * other`."""
+        if self.unavailable_targets != other.unavailable_targets:
+            raise ValueError(
+                "Impossible de mélanger des matrices dont les bulletins diffèrent."
+            )
         return TransferMatrix(
-            {
+            rates={
                 source: {
                     target: weight * value + (1 - weight) * other.rates[source][target]
                     for target, value in targets.items()
                 }
                 for source, targets in self.rates.items()
-            }
+            },
+            unavailable_targets=self.unavailable_targets,
         )
 
 
@@ -234,7 +296,16 @@ def normalize_for_district(
             normalized[i, -1] = 1.0 - own_retention
 
     normalized[-1] = _non_expressed_row(matrix, layout, non_expressed_tilt)
-    return TransferMatrix.from_matrix(normalized, order=order)
+    unavailable_targets = frozenset(
+        target
+        for target, is_available in zip(order, layout.destination_mask)
+        if not is_available
+    )
+    return TransferMatrix.from_matrix(
+        normalized,
+        order=order,
+        unavailable_targets=unavailable_targets,
+    )
 
 
 def _non_expressed_row(

@@ -250,9 +250,10 @@ def render_ternary_chart(
             y=alt.Y("y:Q", axis=None, scale=alt.Scale(domain=domain_y)),
         )
 
-    # Graduations : une famille de lignes par sommet (% abstention = horizontales,
-    # % party_right et % party_left = obliques à ±racine(3)), avec un pas "rond"
-    # choisi automatiquement pour ~5 graduations visibles, coupées au cadre zoomé.
+    # Graduations : une famille de lignes par sommet (% non-exprimés = horizontales,
+    # donc % de suffrages exprimés par complément, et parts des deux partis =
+    # obliques à ±racine(3)). Les horizontales sont espacées de 10 points ;
+    # les deux autres familles gardent un pas adapté à la zone zoomée.
     def gridline_family(kind: str):
         if kind == "abs":
             pct_lo, pct_hi = domain_y[0] / sqrt3_2 * 100, domain_y[1] / sqrt3_2 * 100
@@ -268,7 +269,7 @@ def render_ternary_chart(
                     )
             pct_lo, pct_hi = min(pcts), max(pcts)
 
-        step = _nice_step(pct_hi - pct_lo)
+        step = 10.0 if kind == "abs" else _nice_step(pct_hi - pct_lo)
         ticks = np.arange(np.ceil(pct_lo / step) * step, pct_hi, step)
 
         segments, labels = [], []
@@ -284,7 +285,15 @@ def render_ternary_chart(
                     continue
                 (ax, ay), (bx, by) = clipped
                 seg = (ax, ay, bx, by)
-            segments.append({"x": seg[0], "y": seg[1], "x2": seg[2], "y2": seg[3]})
+            segments.append(
+                {
+                    "x": seg[0],
+                    "y": seg[1],
+                    "x2": seg[2],
+                    "y2": seg[3],
+                    "kind": kind,
+                }
+            )
             lx, ly = (seg[0], seg[1]) if seg[1] <= seg[3] else (seg[2], seg[3])
             labels.append({"x": lx, "y": ly, "text": f"{pct:.0f}%"})
         return segments, labels
@@ -295,9 +304,15 @@ def render_ternary_chart(
         grid_segments += segs
         grid_labels += labs
 
-    gridlines = (
-        alt.Chart(pd.DataFrame(grid_segments))
+    gridline_frame = pd.DataFrame(grid_segments)
+    oblique_gridlines = (
+        alt.Chart(gridline_frame[gridline_frame["kind"] != "abs"])
         .mark_rule(color="#dddddd", strokeWidth=1)
+        .encode(x2="x2:Q", y2="y2:Q", **xy_encoding())
+    )
+    expressed_gridlines = (
+        alt.Chart(gridline_frame[gridline_frame["kind"] == "abs"])
+        .mark_rule(color="#c7c7c7", strokeWidth=2)
         .encode(x2="x2:Q", y2="y2:Q", **xy_encoding())
     )
     gridline_text = (
@@ -391,8 +406,100 @@ def render_ternary_chart(
     )
 
     return (
-        (gridlines + gridline_text + tie_line + points + barycenter + direction_labels)
+        (
+            oblique_gridlines
+            + expressed_gridlines
+            + gridline_text
+            + tie_line
+            + points
+            + barycenter
+            + direction_labels
+        )
         .properties(width=480, height=440, title=title)
+        .configure_view(strokeWidth=0)
+    )
+
+
+def render_dirichlet_simplex(
+    alpha: float,
+    *,
+    n_draws: int = 1_500,
+    seed: int = 42,
+) -> alt.Chart:
+    """Tirages d'une Dirichlet symétrique à trois composantes.
+
+    Le graphique montre les poids échangeables AVANT leur classement selon
+    l'ordre de préférence. Il isole ainsi le rôle d'``alpha`` sans suggérer que
+    la Dirichlet porte elle-même une information politique.
+    """
+    if alpha <= 0:
+        raise ValueError("`alpha` doit être strictement positif.")
+    if n_draws <= 0:
+        raise ValueError("`n_draws` doit être strictement positif.")
+
+    rng = np.random.default_rng(seed)
+    shares = rng.dirichlet(np.full(3, alpha), size=n_draws)
+    vertices = np.array([[0.5, np.sqrt(3) / 2], [0.0, 0.0], [1.0, 0.0]])
+    coordinates = shares @ vertices
+    points_frame = pd.DataFrame(
+        {
+            "x": coordinates[:, 0],
+            "y": coordinates[:, 1],
+            "composante 1": shares[:, 0],
+            "composante 2": shares[:, 1],
+            "composante 3": shares[:, 2],
+        }
+    )
+    triangle_frame = pd.DataFrame(
+        {
+            "x": [0.5, 0.0, 1.0, 0.5],
+            "y": [np.sqrt(3) / 2, 0.0, 0.0, np.sqrt(3) / 2],
+            "order": range(4),
+        }
+    )
+    labels_frame = pd.DataFrame(
+        {
+            "x": [0.5, 0.0, 1.0],
+            "y": [np.sqrt(3) / 2 + 0.045, -0.045, -0.045],
+            "label": ["Composante 1", "Composante 2", "Composante 3"],
+        }
+    )
+    axes = {
+        "x": alt.X("x:Q", axis=None, scale=alt.Scale(domain=[-0.08, 1.08], nice=False)),
+        "y": alt.Y("y:Q", axis=None, scale=alt.Scale(domain=[-0.08, 0.96], nice=False)),
+    }
+    frame = (
+        alt.Chart(triangle_frame)
+        .mark_line(color="#8a9099", strokeWidth=1.2)
+        .encode(order="order:O", **axes)
+    )
+    points = (
+        alt.Chart(points_frame)
+        .mark_circle(size=18, opacity=0.2, color="#3569a8")
+        .encode(
+            tooltip=[
+                alt.Tooltip("composante 1:Q", format=".1%"),
+                alt.Tooltip("composante 2:Q", format=".1%"),
+                alt.Tooltip("composante 3:Q", format=".1%"),
+            ],
+            **axes,
+        )
+    )
+    labels = (
+        alt.Chart(labels_frame)
+        .mark_text(fontSize=11, fontWeight="bold")
+        .encode(text="label:N", **axes)
+    )
+    return (
+        (frame + points + labels)
+        .properties(
+            width=460,
+            height=390,
+            title=alt.Title(
+                f"Dirichlet symétrique — α = {alpha:.3f}",
+                subtitle="Poids avant classement et affectation aux destinations",
+            ),
+        )
         .configure_view(strokeWidth=0)
     )
 
@@ -544,12 +651,10 @@ def render_duel_sankey(
     party_b=PoliticalFamily.RNx,
 ) -> go.Figure:
     """
-    Exemple concret plutôt que la matrice brute abstraite : pour un duel
-    party_a vs party_b, montre comment les électeurs des partis éliminés (et les
-    non-exprimés du 1er tour) se répartissent réellement entre les deux qualifiés, une
-    fois la normalisation par circonscription appliquée (voir
-    `transfers.normalize_for_district`) — party_a/party_b gardent directement
-    leurs voix du 1er tour, donc n'apparaissent qu'en cible, jamais en source.
+    Exemple abstrait d'un duel : montre les TAUX des partis éliminés et des
+    non-exprimés vers les deux qualifiés. Les réservoirs des qualifiés sont omis
+    pour garder cette vue compacte ; ``render_district_sankey`` fournit la vue
+    comptable complète, démobilisation des qualifiés comprise.
     """
     example_competing = {
         destination: (1 if destination in (party_a, party_b) else 0)
@@ -606,6 +711,78 @@ def render_duel_sankey(
         height=520,
     )
     return fig
+
+
+def render_district_sankey(
+    parameters: TransferMatrix,
+    district: CirconscriptionResult,
+    non_expressed_tilt: float,
+) -> go.Figure:
+    """Flux attendus des réservoirs réels d'une circonscription.
+
+    Contrairement au Sankey abstrait d'un duel, celui-ci pondère chaque taux par
+    le nombre de voix du réservoir. Les partis qualifiés restent donc visibles :
+    leur flux vers les non-exprimés matérialise leur possible démobilisation.
+    """
+    normalized = normalize_for_district(parameters, district, non_expressed_tilt)
+    pools = district.available_vote_pools_by_party()
+    sources_order = [source for source in DESTINATIONS if pools.get(source, 0) > 0]
+    targets_order = [
+        target
+        for target in DESTINATIONS
+        if district.competing_parties_results.get(target, 0) > 0
+    ] + [NON_EXPRIMES]
+
+    source_labels = [f"{label(source)} (1er tour)" for source in sources_order]
+    target_labels = [f"{label(target)} (2nd tour)" for target in targets_order]
+    labels = source_labels + target_labels
+    colors = [color_for(source) for source in sources_order] + [
+        color_for(target) for target in targets_order
+    ]
+
+    source_indices = {source: i for i, source in enumerate(sources_order)}
+    target_indices = {
+        target: len(sources_order) + i for i, target in enumerate(targets_order)
+    }
+    sources, targets, values, link_colors = [], [], [], []
+    for source in sources_order:
+        pool = pools[source]
+        row = normalized.rates[source]
+        for target in targets_order:
+            flow = pool * row.get(target, 0.0)
+            if flow <= 0.5:
+                continue
+            sources.append(source_indices[source])
+            targets.append(target_indices[target])
+            values.append(flow)
+            link_colors.append(_hex_to_rgba(color_for(source), alpha=0.4))
+
+    figure = go.Figure(
+        go.Sankey(
+            node=dict(
+                label=labels,
+                color=colors,
+                pad=22,
+                thickness=18,
+                line=dict(color="white", width=0.5),
+            ),
+            link=dict(
+                source=sources,
+                target=targets,
+                value=values,
+                color=link_colors,
+            ),
+        )
+    )
+    figure.update_layout(
+        title_text=(
+            f"Flux attendus — {district.circonscription.name} "
+            f"({district.circonscription.id})"
+        ),
+        font_size=12,
+        height=540,
+    )
+    return figure
 
 
 TIE_LABEL = "Égalité"

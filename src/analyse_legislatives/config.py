@@ -43,6 +43,7 @@ from analyse_legislatives.utils.validation import (
 PACKAGE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_DIR.parent.parent
 DATA_DIR = Path(os.environ.get("ANALYSE_LEGISLATIVES_DATA_DIR", PROJECT_ROOT / "data"))
+APP_ARTIFACT_DIR = PROJECT_ROOT / "artifacts/app"
 MODEL_CONFIG_PATH = PROJECT_ROOT / "config/model.yaml"
 PARTY_FAMILIES_PATH = PROJECT_ROOT / "config/party_families.json"
 

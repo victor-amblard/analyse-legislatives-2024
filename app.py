@@ -6,22 +6,27 @@ Ce fichier ne contient que la mise en page et le câblage. Le modèle est dans
 boucle Monte-Carlo dans `.simulation`, les agrégations dans `.projections`, les
 graphiques dans `.viz.charts` et le texte de méthodologie dans `.viz.methodology`.
 
-Les simulations sont calculées une seule fois (mises en cache par Streamlit) puis
-réutilisées par tous les onglets — pas de recalcul à chaque interaction.
+Les simulations sont produites hors ligne par ``scripts/reproduce.py``. L'app
+charge l'artefact validé qui en résulte et ne fait que des agrégations légères.
 
 Usage : `streamlit run app.py`
 """
 
-import altair as alt
 import hashlib
 
-import numpy as np
+import altair as alt
 import polars as pl
 import streamlit as st
 
 from analyse_legislatives import projections, simulation
+from analyse_legislatives.app_artifacts import (
+    AppArtifact,
+    AppArtifactError,
+    load_app_artifact,
+)
 from analyse_legislatives.data import FirstRoundData, load_full_results as _load
 from analyse_legislatives.config import (
+    APP_ARTIFACT_DIR,
     DEFAULT_DIRICHLET_ALPHA_BOUNDS,
     DEFAULT_DISTRICT_EXPRESSED_BAND_PTS,
     DEFAULT_EXPECTED_EXPRESSED_CHANGE_PTS,
@@ -32,10 +37,8 @@ from analyse_legislatives.config import (
     DEFAULT_N_SIMUS,
     DEFAULT_SEED,
     MODEL_CONFIG_PATH,
-    PROJECT_ROOT,
 )
-from analyse_legislatives.models import DEFAULT_MODEL, build
-from analyse_legislatives.transfers import TransferMatrix
+from analyse_legislatives.models import DEFAULT_MODEL
 from analyse_legislatives.parties import NON_EXPRIMES, SPECTRUM_LABELS
 from analyse_legislatives.viz import format_interval, format_number
 from analyse_legislatives.viz.charts import (
@@ -66,116 +69,42 @@ def first_round_data() -> FirstRoundData:
 
 @st.cache_data(show_spinner=False)
 def config_digest() -> str:
-    """Empreinte de `config/model.yaml`, incluse dans la clé du cache disque.
+    """Empreinte de `config/model.yaml`, comparée au manifeste de l'artefact.
 
-    Sans elle, modifier un prior laisserait l'app resservir indéfiniment un cube
-    calculé sous l'ancienne configuration."""
-    return hashlib.sha256(MODEL_CONFIG_PATH.read_bytes()).hexdigest()[:16]
-
-
-CUBE_CACHE_DIR = PROJECT_ROOT / "artifacts/cache"
+    Une divergence arrête l'app : la VM ne doit jamais recalculer silencieusement
+    un cube produit sous une autre configuration."""
+    return hashlib.sha256(MODEL_CONFIG_PATH.read_bytes()).hexdigest()
 
 
-@st.cache_data(show_spinner=False)
-def simulation_cube(model: str, seed: int, n_simus: int, digest: str) -> np.ndarray:
-    """Le cube des simulations, conservé sur disque d'une session à l'autre.
-
-    À seed et configuration fixées, ce cube est entièrement déterministe : deux
-    exécutions donnent le même tableau au bit près. Le recalculer à chaque
-    démarrage faisait attendre ~80 s pour reproduire un résultat déjà connu ; le
-    relire prend 0,01 s.
-
-    Cache écrit à la main plutôt que `@st.cache_data(persist="disk")` : cette
-    option est un no-op hors d'un vrai runtime Streamlit — la bibliothèque
-    bascule alors en silence sur un stockage en mémoire (`No runtime found,
-    using MemoryCacheStorageManager`) — donc elle n'est pas vérifiable par un
-    test. Un fichier `.npy` l'est.
-
-    La clé est dans le NOM du fichier : changer de modèle, de seed, de nombre de
-    tirages ou toucher `config/model.yaml` produit un autre nom, donc jamais de
-    relecture périmée. `artifacts/cache/` est déjà ignoré par Git.
-    """
-    path = CUBE_CACHE_DIR / f"cube-{model}-{seed}-{n_simus}-{digest}.npy"
-    if path.exists():
-        return np.load(path)
-
-    districts = first_round_data().districts
-    bar = st.progress(0.0, text=f"Simulation des reports de voix — 0 / {n_simus}")
-
-    def advance(done: int, total: int) -> None:
-        bar.progress(
-            done / total, text=f"Simulation des reports de voix — {done} / {total}"
-        )
-
-    try:
-        cube = simulation.run(
-            build(model, seed=seed), districts, n_simus, progress=advance
-        )
-    finally:
-        bar.empty()
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.save(path, cube)
-    return cube
-
-
-@st.cache_data(show_spinner=False)
-def predictions_long() -> pl.DataFrame:
-    """Vue en tableau long du cube, pour les graphiques Altair par circonscription."""
-    return simulation.to_long_frame(
-        simulation_cube(DEFAULT_MODEL, DEFAULT_SEED, DEFAULT_N_SIMUS, config_digest()),
-        first_round_data().districts,
+@st.cache_resource(show_spinner="Chargement des simulations précalculées…")
+def deployed_artifact(digest: str, ids: tuple[str, ...]) -> AppArtifact:
+    """Ressource immuable partagée entre toutes les sessions de la VM."""
+    return load_app_artifact(
+        APP_ARTIFACT_DIR,
+        expected_model=DEFAULT_MODEL,
+        expected_seed=DEFAULT_SEED,
+        expected_n_simulations=DEFAULT_N_SIMUS,
+        expected_config_sha256=digest,
+        expected_district_ids=ids,
     )
 
 
 @st.cache_data(show_spinner=False)
-def national_seats() -> pl.DataFrame:
+def national_seats(digest: str, ids: tuple[str, ...]) -> pl.DataFrame:
     return projections.seats_by_simulation(
-        simulation_cube(DEFAULT_MODEL, DEFAULT_SEED, DEFAULT_N_SIMUS, config_digest()),
+        deployed_artifact(digest, ids).cube,
         first_round_data().first_round_seats,
     )
 
 
 @st.cache_data(show_spinner=False)
-def national_expressed_share() -> pl.Series:
+def national_expressed_share(digest: str, ids: tuple[str, ...]) -> pl.Series:
     data = first_round_data()
     return projections.expressed_share_by_simulation(
-        simulation_cube(DEFAULT_MODEL, DEFAULT_SEED, DEFAULT_N_SIMUS, config_digest()),
+        deployed_artifact(digest, ids).cube,
         data.districts,
         data.inscrits_by_id,
     )
-
-
-@st.cache_data(show_spinner=False)
-def prior_predictive_matrix(model: str, seed: int, digest: str) -> TransferMatrix:
-    """Médianes de la prédictive a priori de la matrice de report.
-
-    Le modèle ne contient plus de taux fixés à la main : pour montrer à quoi
-    ressemblent les taux qu'il implique, il faut les tirer (voir
-    `scripts/analyses/prior_predictive.py`).
-
-    Caché sur disque pour la même raison que le cube, et c'est ici que ça pesait
-    le plus : 40 s pour un tableau 8x8 que l'onglet Méthodologie n'affiche que
-    résumé. Streamlit exécute le script entier à chaque chargement, onglets non
-    affichés compris — ce calcul était donc payé même par qui ne l'ouvrait
-    jamais. Stocké dense dans l'ordre canonique `DESTINATIONS`, via l'API
-    existante `to_matrix` / `from_matrix`.
-    """
-    path = CUBE_CACHE_DIR / f"prior-matrix-{model}-{seed}-{digest}.npy"
-    if path.exists():
-        return TransferMatrix.from_matrix(np.load(path))
-
-    bar = st.progress(0.0, text="Résumé de la prédictive a priori…")
-    try:
-        matrix = simulation.prior_predictive_median_matrix(
-            build(model, seed=seed), first_round_data().districts
-        )
-    finally:
-        bar.empty()
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.save(path, matrix.to_matrix())
-    return matrix
 
 
 def render_seat_metrics(seats_by_simu: pl.DataFrame, median_seats: dict) -> None:
@@ -205,24 +134,25 @@ st.caption(
     "de la loi du 19 juillet 1977."
 )
 
-# L'ordre compte : Streamlit rend les éléments de haut en bas. Titre, onglets et
-# emplacement de la barre sont créés AVANT la simulation, pour que la page soit
-# déjà là — et la progression visible — pendant les ~80 s du premier calcul.
-progress_slot = st.container()
-
 first_round = first_round_data()
-with progress_slot:
-    cube = simulation_cube(
-        DEFAULT_MODEL, DEFAULT_SEED, DEFAULT_N_SIMUS, config_digest()
-    )
+artifact_ids = tuple(d.circonscription.id for d in first_round.districts)
+digest = config_digest()
+try:
+    artifact = deployed_artifact(digest, artifact_ids)
+except AppArtifactError as exc:
+    st.error(str(exc))
+    st.stop()
+cube = artifact.cube
 district_index = {d.circonscription.id: i for i, d in enumerate(first_round.districts)}
 
 tab_national, tab_circo, tab_methodo = st.tabs(
-    ["Projection nationale", "Projection par circonscription", "Méthodologie"]
+    ["Projection nationale", "Projection par circonscription", "Méthodologie"],
+    key="main_tab",
+    on_change="rerun",
 )
 
 with tab_national:
-    seats_by_simu = national_seats()
+    seats_by_simu = national_seats(digest, artifact_ids)
     render_seat_panel(seats_by_simu)
 
     st.divider()
@@ -234,7 +164,7 @@ with tab_national:
     st.altair_chart(render_dominant_party_chart(seats_by_simu), width="stretch")
 
     st.divider()
-    expressed_by_simu = national_expressed_share()
+    expressed_by_simu = national_expressed_share(digest, artifact_ids)
     col_metric, col_chart = st.columns([1, 2])
     with col_metric:
         st.metric(
@@ -356,10 +286,9 @@ with tab_circo:
         expressed_rate = projections.district_expressed_rate(
             cube, index, district_inscrits
         )
-        # Tableau long restreint à cette circonscription : seul format que
-        # comprennent les graphiques Altair.
-        long_df = predictions_long()
-        circo_df = long_df.filter(pl.col("id_circo") == id_circo)
+        # Les graphiques Altair attendent un format long. Ne matérialiser que
+        # la circonscription affichée évite une table nationale de 8 M de lignes.
+        circo_df = simulation.to_long_frame(cube[:, index : index + 1, :], [district])
 
         col_table, col_chart = st.columns([2, 3])
 
@@ -496,24 +425,25 @@ def prior_simplex_chart(dark: bool):
     return simplex_chart(dark=dark)
 
 
-with tab_methodo:
-    render_methodology(
-        prior_predictive_matrix(DEFAULT_MODEL, DEFAULT_SEED, config_digest()),
-        non_expressed_retention_prior=DEFAULT_NON_EXPRESSED_RETENTION_PRIOR,
-        qualified_demobilisation_prior=DEFAULT_QUALIFIED_DEMOBILISATION_PRIOR,
-        expected_expressed_change_pts=DEFAULT_EXPECTED_EXPRESSED_CHANGE_PTS,
-        national_expressed_band_pts=DEFAULT_NATIONAL_EXPRESSED_BAND_PTS,
-        district_expressed_band_pts=DEFAULT_DISTRICT_EXPRESSED_BAND_PTS,
-        non_expressed_tilt_bounds=DEFAULT_NON_EXPRESSED_TILT_BOUNDS,
-        dirichlet_alpha_bounds=DEFAULT_DIRICHLET_ALPHA_BOUNDS,
-        n_simus=DEFAULT_N_SIMUS,
-        seed=DEFAULT_SEED,
-    )
+if tab_methodo.open:
+    with tab_methodo:
+        render_methodology(
+            artifact.prior_matrix,
+            non_expressed_retention_prior=DEFAULT_NON_EXPRESSED_RETENTION_PRIOR,
+            qualified_demobilisation_prior=DEFAULT_QUALIFIED_DEMOBILISATION_PRIOR,
+            expected_expressed_change_pts=DEFAULT_EXPECTED_EXPRESSED_CHANGE_PTS,
+            national_expressed_band_pts=DEFAULT_NATIONAL_EXPRESSED_BAND_PTS,
+            district_expressed_band_pts=DEFAULT_DISTRICT_EXPRESSED_BAND_PTS,
+            non_expressed_tilt_bounds=DEFAULT_NON_EXPRESSED_TILT_BOUNDS,
+            dirichlet_alpha_bounds=DEFAULT_DIRICHLET_ALPHA_BOUNDS,
+            n_simus=DEFAULT_N_SIMUS,
+            seed=DEFAULT_SEED,
+        )
 
-    st.subheader("D'un ordre de préférence à une distribution")
-    st.caption(
-        "Ce que le prior autorise pour une ligne de la matrice, dans un duel "
-        "ENS+/RN+. La région délimitée est celle que l'ordre déclaré rend "
-        "compatible ; α gouverne la concentration à l'intérieur."
-    )
-    st.altair_chart(prior_simplex_chart(is_dark()), theme=None, width="stretch")
+        st.subheader("D'un ordre de préférence à une distribution")
+        st.caption(
+            "Ce que le prior autorise pour une ligne de la matrice, dans un duel "
+            "ENS+/RN+. La région délimitée est celle que l'ordre déclaré rend "
+            "compatible ; α gouverne la concentration à l'intérieur."
+        )
+        st.altair_chart(prior_simplex_chart(is_dark()), theme=None, width="stretch")

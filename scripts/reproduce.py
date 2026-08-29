@@ -22,13 +22,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from analyse_legislatives.config import (
+    APP_ARTIFACT_DIR,
     DEFAULT_N_SIMUS,
     DEFAULT_SEED,
     MODEL_CONFIG,
     MODEL_CONFIG_PATH,
+    PROJECT_ROOT,
 )
 from analyse_legislatives.models import PUBLICATION_MODELS
-from analyse_legislatives.config import PROJECT_ROOT
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "artifacts/publication/models"
 
@@ -99,6 +100,12 @@ def main() -> None:
         help="tirages par cellule pour la sensibilité croisée (h, lambda)",
     )
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--app-artifact-dir", type=Path, default=APP_ARTIFACT_DIR)
+    parser.add_argument(
+        "--no-app-artifact",
+        action="store_true",
+        help="ne produit pas le paquet précalculé consommé par Streamlit",
+    )
     args = parser.parse_args()
 
     if args.kernel_sensitivity and not args.figures:
@@ -112,6 +119,21 @@ def main() -> None:
         )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    app_artifact_enabled = (
+        not args.no_app_artifact
+        and args.n_simus == DEFAULT_N_SIMUS
+        and MODEL_CONFIG.default_model in args.models
+    )
+    if (
+        not args.no_app_artifact
+        and MODEL_CONFIG.default_model in args.models
+        and args.n_simus != DEFAULT_N_SIMUS
+    ):
+        print(
+            "Artefact Streamlit ignoré : --n-simus diffère de la configuration "
+            f"de déploiement ({DEFAULT_N_SIMUS}).",
+            file=sys.stderr,
+        )
 
     steps = [f"évaluation {model}" for model in args.models]
     if args.figures:
@@ -126,24 +148,25 @@ def main() -> None:
     for model in args.models:
         done += 1
         announce(done, len(steps), f"évaluation {model} ({args.n_simus} tirages)")
-        output = capture(
-            [
-                sys.executable,
-                "scripts/evaluate.py",
-                "--model",
-                model,
-                "--n-simus",
-                str(args.n_simus),
-                "--seed",
-                str(DEFAULT_SEED),
-                "--seat-summary-csv",
-                str(args.output_dir / f"seat-intervals-{model}.csv"),
-                "--joint-diagnostics-csv",
-                str(args.output_dir / f"joint-diagnostics-{model}.csv"),
-                "--expressed-diagnostics-csv",
-                str(args.output_dir / f"expressed-diagnostics-{model}.csv"),
-            ]
-        )
+        command = [
+            sys.executable,
+            "scripts/evaluate.py",
+            "--model",
+            model,
+            "--n-simus",
+            str(args.n_simus),
+            "--seed",
+            str(DEFAULT_SEED),
+            "--seat-summary-csv",
+            str(args.output_dir / f"seat-intervals-{model}.csv"),
+            "--joint-diagnostics-csv",
+            str(args.output_dir / f"joint-diagnostics-{model}.csv"),
+            "--expressed-diagnostics-csv",
+            str(args.output_dir / f"expressed-diagnostics-{model}.csv"),
+        ]
+        if app_artifact_enabled and model == MODEL_CONFIG.default_model:
+            command.extend(["--app-artifact-dir", str(args.app_artifact_dir)])
+        output = capture(command)
         path = args.output_dir / f"evaluation-{model}.txt"
         path.write_text(output, encoding="utf-8")
         print(f"wrote {display_path(path)}", flush=True)
@@ -195,6 +218,10 @@ def main() -> None:
         "n_simulations": args.n_simus,
         "models": list(args.models),
         "figures": args.figures,
+        "app_artifact_generated": app_artifact_enabled,
+        "app_artifact_dir": (
+            str(display_path(args.app_artifact_dir)) if app_artifact_enabled else None
+        ),
         "kernel_sensitivity_recomputed": args.kernel_sensitivity,
         "prior_simulations_per_alpha": args.prior_simus if args.figures else None,
         "kernel_sensitivity_simulations_per_cell": (

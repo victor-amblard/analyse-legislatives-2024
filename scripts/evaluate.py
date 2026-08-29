@@ -27,20 +27,26 @@ Usage :
 """
 
 import argparse
+import hashlib
 from pathlib import Path
 
 import numpy as np
 import polars as pl
 
 from analyse_legislatives import simulation
-from analyse_legislatives.data import load_full_results, load_second_round_results
+from analyse_legislatives.app_artifacts import write_app_artifact
+from analyse_legislatives.data import (
+    district_ids,
+    load_full_results,
+    load_second_round_results,
+)
 from analyse_legislatives.evaluation import (
     coverage_and_width,
     joint_region_scores,
     pit,
     probabilistic_and_median_scores,
 )
-from analyse_legislatives.config import DEFAULT_N_SIMUS, DEFAULT_SEED
+from analyse_legislatives.config import DEFAULT_N_SIMUS, DEFAULT_SEED, MODEL_CONFIG_PATH
 from analyse_legislatives.models import DEFAULT_MODEL, STOCHASTIC_MODELS, build
 from analyse_legislatives.parties import (
     DESTINATION_LABELS,
@@ -138,6 +144,14 @@ def main():
         type=Path,
         help="écrit la prédictive nationale et les erreurs médianes par circonscription",
     )
+    parser.add_argument(
+        "--app-artifact-dir",
+        type=Path,
+        help=(
+            "écrit le cube et la matrice prédictive consommés par Streamlit ; "
+            "réservé au modèle de déploiement"
+        ),
+    )
     args = parser.parse_args()
 
     first_round = load_full_results()
@@ -159,6 +173,30 @@ def main():
         cube = simulation.run(model, districts, args.n_simus, progress=tick)
 
     ids = [district.circonscription.id for district in districts]
+    if args.app_artifact_dir:
+        expected_ids = district_ids(first_round.districts)
+        if ids != expected_ids:
+            raise ValueError(
+                "Impossible de produire l'artefact de l'app : l'évaluation ne "
+                "couvre pas exactement les circonscriptions simulées."
+            )
+        with progress_bar(args.n_simus, "Matrice prédictive") as tick:
+            prior_matrix = simulation.prior_predictive_median_matrix(
+                build(args.model, seed=args.seed),
+                districts,
+                args.n_simus,
+                progress=tick,
+            )
+        write_app_artifact(
+            args.app_artifact_dir,
+            cube=cube,
+            prior_matrix=prior_matrix,
+            model=args.model,
+            seed=args.seed,
+            config_sha256=hashlib.sha256(MODEL_CONFIG_PATH.read_bytes()).hexdigest(),
+            district_ids=ids,
+        )
+
     inscrits = np.array([first_round.inscrits_by_id[i] for i in ids], dtype=float)
     party_cube = cube[:, :, : len(FAMILIES)]
     exprimes_sim = party_cube.sum(axis=2)
