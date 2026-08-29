@@ -1,0 +1,53 @@
+501 circonscriptions évaluées | N = 2000 tirages | modèle = national_anchored (ordinal)
+
+==========================================================================
+NIVEAU NATIONAL
+==========================================================================
+
+   parti   réel   médiane          IC 90%   dans IC
+     DIV     10         9   [    7 —    11]       oui
+    NFP+    181       204   [  155 —   236]       oui
+     DVG     12        13   [   11 —    14]       oui
+    ENS+    165       147   [  105 —   180]       oui
+      LR     39        18   [    8 —    40]       oui
+     DVD     27        18   [   11 —    27]       oui
+     RN+    143       170   [  104 —   236]       oui
+
+  Energy score du vecteur de sièges (unité : sièges)
+    national                    :    29.68   (scénario médian seul : 45.60)
+      → 1 seule observation : indicatif, non concluant.
+
+  Région prédictive jointe du vecteur de sièges
+    résultat réel : score 29.73 | percentile d'éloignement 49.0%
+    région 50 % : dedans (seuil 30.31) | région 90 % : dedans (seuil 55.16)
+
+  Suffrages exprimés nationaux : réel 63.0 % | médiane 60.8 % | IC90 [52.0 — 68.7] | dans IC
+
+==========================================================================
+PAR CIRCONSCRIPTION
+==========================================================================
+
+  Score des partis qualifiés (% exprimés)  (1091 observations)
+      niveau   couverture    largeur moyenne
+         50%        33.5%           4.51 pts  (trop confiant)
+         80%        63.7%           8.30 pts  (trop confiant)
+         90%        76.4%          10.29 pts  (trop confiant)
+         95%        81.6%          11.82 pts  (trop confiant)
+    PIT par décile (10 % attendu partout) : 18% 9% 10% 7% 5% 5% 7% 10% 10% 18%
+
+  Taux de suffrages exprimés (% inscrits)  (501 observations)
+      niveau   couverture    largeur moyenne
+         50%        66.7%           7.64 pts  (trop large)
+         80%        97.8%          14.36 pts  (trop large)
+         90%        98.8%          18.27 pts  (trop large)
+         95%        99.0%          21.58 pts  (trop large)
+    PIT par décile (10 % attendu partout) : 1% 2% 3% 6% 9% 15% 20% 30% 14% 1%
+
+  Vainqueur : 83.8% de circonscriptions correctes (420/501)
+    probabilité moyenne attribuée au vrai vainqueur : 80.3%
+    calibration des probabilités de victoire (partis en lice) :
+      prédit 0%-20% : réalisé   4.7% (448 cas)
+      prédit 20%-40% : réalisé  37.7% (106 cas)
+      prédit 40%-60% : réalisé  50.7% (75 cas)
+      prédit 60%-80% : réalisé  61.8% (102 cas)
+      prédit 80%-101% : réalisé  94.2% (360 cas)

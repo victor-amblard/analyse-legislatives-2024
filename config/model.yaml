@@ -1,0 +1,41 @@
+seed: 20240707
+n_simulations: 2000
+default_model: national_anchored
+
+priors:
+  non_expressed_retention_beta: [8.0, 2.0]
+  non_expressed_tilt_uniform: [-1.0, 2.0]
+  qualified_demobilisation_beta: [2.0, 38.0]
+  mixing_beta: [2.0, 2.0]
+  dirichlet_alpha_bounds: [0.5, 1.0]  # log-uniform pour la dirichlet de préférences
+expressed_share:
+  # Calibré sur les 4 dernières élections
+  expected_change_pts: -4.34
+  national_band_pts: 8.91
+  district_band_pts: 4.0
+
+free_targets: [DIV]
+
+transfer_orderings:
+  ENS+:
+    - [DVG, DVD, LR, NFP+]
+    - [RN+, NON_EXPRIMES]
+  NFP+:
+    - [DVG]
+    - [ENS+]
+    - [LR, DVD, RN+, NON_EXPRIMES]
+  LR:
+    - [DVD, ENS+]
+    - [RN+, NFP+, DVG, NON_EXPRIMES]
+  RN+:
+    - [LR, DVD]
+    - [ENS+, NFP+, DVG, NON_EXPRIMES]
+  DVG:
+    - [NFP+]
+    - [ENS+]
+    - [LR, DVD, RN+, NON_EXPRIMES]
+  DVD:
+    - [LR, ENS+]
+    - [RN+, NFP+, DVG, NON_EXPRIMES]
+  DIV:
+    - [ENS+, LR, NFP+, RN+, DVG, DVD, NON_EXPRIMES]

@@ -1,26 +1,78 @@
-[tool.poetry]
-name = "projet-elections"
+[project]
+name = "analyse-legislatives-2024"
 version = "0.1.0"
-description = ""
-authors = ["Victor Amblard <victor.amblard@yahoo.com>"]
-packages = [{"from" = "src", "include" = "analyse_legislatives"}]
+description = "Prior-predictive model of the 2024 French legislative election"
+authors = [{name = "Victor Amblard", email = "victor.amblard@yahoo.com"}]
 readme = "README.md"
+requires-python = ">=3.13,<3.15"
+dependencies = [
+    "altair>=6,<7",
+    "numpy>=2,<3",
+    "pandas>=2.2.2,<3",
+    "polars>=1.32,<2",
+    "pydantic>=2,<3",
+    "plotly>=5.24,<6",
+    "pyyaml>=6.0.2,<7",
+    "scipy>=1.14,<2",
+    "streamlit>=1.61,<2",
+    "vl-convert-python (>=1.9,<2)",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-pandas = "^2.2.2"
-scikit-learn = "^1.5.0"
-scipy = "^1.14.0"
-ipykernel = "^6.29.4"
-openpyxl = "^3.1.4"
-altair = "^5.3.0"
+[tool.poetry]
+packages = [{"from" = "src", "include" = "analyse_legislatives"}]
+
+[tool.poetry.group.research.dependencies]
 geopandas = "^1.0.1"
+ipykernel = "^6.29.4"
 nbconvert = "^7.16.4"
+openpyxl = "^3.1.4"
+pymc = ">=6,<7"
 
 
 [tool.poetry.group.dev.dependencies]
 black = {extras = ["jupyter"], version = "^24.8.0"}
+mypy = "^2.3"
+pytest = "^8.3"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+# `testpaths` + la racine du dépôt dans le chemin d'import : les tests importent
+# `tests.conftest` pour ses constructeurs de circonscriptions, en plus des
+# fixtures collectées automatiquement.
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = ["error::RuntimeWarning"]
+
+[tool.mypy]
+python_version = "3.13"
+files = ["src", "scripts"]
+# Sans cela, `src/analyse_legislatives/` n'ayant pas d'`__init__.py`, mypy nomme
+# les modules `publication.charts` au lieu de `analyse_legislatives.publication.charts`
+# — et les surcharges ci-dessous ne s'appliqueraient à rien.
+mypy_path = "src"
+explicit_package_bases = true
+# Ni polars, ni altair, ni streamlit, ni scipy ne publient de stubs complets.
+ignore_missing_imports = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+
+# `tests/` est hors périmètre : sans `__init__.py`, mypy voit `conftest` sous deux
+# noms de module et s'arrête avant d'avoir rien vérifié. Les tests sont couverts
+# par pytest.
+
+# Le typage d'Altair déclare des retours `Chart` là où la bibliothèque produit en
+# réalité des `LayerChart`, `FacetChart` ou `HConcatChart`, et refuse le
+# dépaquetage `**kwargs` dans les encodages. Seul `arg-type` est désactivé, et
+# seulement ici : les contrôles de substitution et de variance — l'objet même de
+# ce typage — restent actifs partout, y compris dans ces fichiers.
+[[tool.mypy.overrides]]
+module = [
+    "analyse_legislatives.publication.charts",
+    "analyse_legislatives.publication.illustrations.prior_sankey",
+    "analyse_legislatives.viz.charts",
+]
+disable_error_code = ["arg-type"]

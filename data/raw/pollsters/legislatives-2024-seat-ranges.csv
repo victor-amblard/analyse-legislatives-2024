@@ -1,0 +1,21 @@
+pollster,fieldwork,party,low,high,actual,source_url,aggregation_note
+Cluster 17,2024-07-05,NFP + DVG,165,195,190,https://fr.wikipedia.org/wiki/%C3%89lections_l%C3%A9gislatives_fran%C3%A7aises_de_2024,DVG not reported separately
+Cluster 17,2024-07-05,ENS and allies,130,160,150,https://fr.wikipedia.org/wiki/%C3%89lections_l%C3%A9gislatives_fran%C3%A7aises_de_2024,Published block
+Cluster 17,2024-07-05,LR + DVD,30,50,66,https://fr.wikipedia.org/wiki/%C3%89lections_l%C3%A9gislatives_fran%C3%A7aises_de_2024,Published block
+Cluster 17,2024-07-05,RN and allies,170,210,142,https://fr.wikipedia.org/wiki/%C3%89lections_l%C3%A9gislatives_fran%C3%A7aises_de_2024,Published block
+Cluster 17,2024-07-05,Others,15,30,29,https://fr.wikipedia.org/wiki/%C3%89lections_l%C3%A9gislatives_fran%C3%A7aises_de_2024,Published block
+Ifop,2024-07-03 to 2024-07-05,NFP + DVG,165,203,190,https://www.ifop.com/wp-content/uploads/2024/07/ROL24_20240705.pdf,NFP plus DVG bounds
+Ifop,2024-07-03 to 2024-07-05,ENS and allies,120,150,150,https://www.ifop.com/wp-content/uploads/2024/07/ROL24_20240705.pdf,Published block
+Ifop,2024-07-03 to 2024-07-05,LR + DVD,50,65,66,https://www.ifop.com/wp-content/uploads/2024/07/ROL24_20240705.pdf,Published block
+Ifop,2024-07-03 to 2024-07-05,RN and allies,170,210,142,https://www.ifop.com/wp-content/uploads/2024/07/ROL24_20240705.pdf,Published block
+Ifop,2024-07-03 to 2024-07-05,Others,5,15,29,https://www.ifop.com/wp-content/uploads/2024/07/ROL24_20240705.pdf,Published block
+Harris Interactive,2024-07-04 to 2024-07-05,NFP + DVG,168,198,190,https://fr.wikipedia.org/wiki/%C3%89lections_l%C3%A9gislatives_fran%C3%A7aises_de_2024,DVG not reported separately
+Harris Interactive,2024-07-04 to 2024-07-05,ENS and allies,115,145,150,https://fr.wikipedia.org/wiki/%C3%89lections_l%C3%A9gislatives_fran%C3%A7aises_de_2024,Published block
+Harris Interactive,2024-07-04 to 2024-07-05,LR + DVD,32,63,66,https://fr.wikipedia.org/wiki/%C3%89lections_l%C3%A9gislatives_fran%C3%A7aises_de_2024,Published block
+Harris Interactive,2024-07-04 to 2024-07-05,RN and allies,185,215,142,https://fr.wikipedia.org/wiki/%C3%89lections_l%C3%A9gislatives_fran%C3%A7aises_de_2024,Published block
+Harris Interactive,2024-07-04 to 2024-07-05,Others,15,30,29,https://fr.wikipedia.org/wiki/%C3%89lections_l%C3%A9gislatives_fran%C3%A7aises_de_2024,Published block
+Ipsos,2024-07-03 to 2024-07-04,NFP + DVG,159,191,190,https://www.ipsos.com/sites/default/files/ct/news/documents/2024-07/ipsos-intentions-vote-legislatives-2024-5-juillet-2024-rapport-complet-WEB.pdf,NFP plus DVG bounds
+Ipsos,2024-07-03 to 2024-07-04,ENS and allies,126,156,150,https://www.ipsos.com/sites/default/files/ct/news/documents/2024-07/ipsos-intentions-vote-legislatives-2024-5-juillet-2024-rapport-complet-WEB.pdf,Published block
+Ipsos,2024-07-03 to 2024-07-04,LR + DVD,57,67,66,https://www.ipsos.com/sites/default/files/ct/news/documents/2024-07/ipsos-intentions-vote-legislatives-2024-5-juillet-2024-rapport-complet-WEB.pdf,Published block
+Ipsos,2024-07-03 to 2024-07-04,RN and allies,175,205,142,https://www.ipsos.com/sites/default/files/ct/news/documents/2024-07/ipsos-intentions-vote-legislatives-2024-5-juillet-2024-rapport-complet-WEB.pdf,Published block
+Ipsos,2024-07-03 to 2024-07-04,Others,8,12,29,https://www.ipsos.com/sites/default/files/ct/news/documents/2024-07/ipsos-intentions-vote-legislatives-2024-5-juillet-2024-rapport-complet-WEB.pdf,Published block

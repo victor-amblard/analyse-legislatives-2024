@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "model": "national",
+  "seed": 20240707,
+  "n_simulations": 2000,
+  "national_district_count": 501,
+  "sources": {
+    "first_round": "data/processed/legislatives2024/data.csv",
+    "second_round": "data/raw/legislatives2024/legislatives-2024-resultats-t2.csv",
+    "model_config": "config/model.yaml"
+  },
+  "district": {
+    "id": "0101",
+    "name": "1ère circonscription"
+  },
+  "first_round": {
+    "competing": [
+      {
+        "party": "RN+",
+        "value": 23819
+      },
+      {
+        "party": "LR",
+        "value": 14495
+      }
+    ],
+    "reservoirs": [
+      {
+        "party": "NFP+",
+        "value": 14607
+      },
+      {
+        "party": "ENS+",
+        "value": 7063
+      },
+      {
+        "party": "RN+",
+        "value": 511
+      },
+      {
+        "party": "NON_EXPRIMES",
+        "value": 26348
+      }
+    ]
+  },
+  "example_draw": {
+    "source": "NFP+",
+    "theta_row": [
+      {
+        "party": "DIV",
+        "value": 0.4026858835758362
+      },
+      {
+        "party": "DVG",
+        "value": 0.3380103368079009
+      },
+      {
+        "party": "ENS+",
+        "value": 0.18106317901476707
+      },
+      {
+        "party": "LR",
+        "value": 0.06294875888733295
+      },
+      {
+        "party": "NON_EXPRIMES",
+        "value": 0.0075059491552093805
+      },
+      {
+        "party": "DVD",
+        "value": 0.00466236738287818
+      },
+      {
+        "party": "RN+",
+        "value": 0.003123525176075461
+      }
+    ],
+    "restricted_row": [
+      {
+        "party": "LR",
+        "value": 0.8555350697304428
+      },
+      {
+        "party": "RN+",
+        "value": 0.042451755627166965
+      },
+      {
+        "party": "NON_EXPRIMES",
+        "value": 0.1020131746423903
+      }
+    ],
+    "multinomial": [
+      {
+        "party": "LR",
+        "value": 12549
+      },
+      {
+        "party": "RN+",
+        "value": 608
+      },
+      {
+        "party": "NON_EXPRIMES",
+        "value": 1450
+      }
+    ],
+    "totals": [
+      {
+        "party": "LR",
+        "value": 33813
+      },
+      {
+        "party": "RN+",
+        "value": 27770
+      }
+    ],
+    "winner": "LR"
+  },
+  "predictive": {
+    "focus_party": "RN+",
+    "win_probability": 0.7985,
+    "histogram_counts": [
+      28,
+      145,
+      231,
+      270,
+      285,
+      259,
+      245,
+      190,
+      152,
+      103,
+      58,
+      22,
+      6,
+      6
+    ],
+    "histogram_edges": [
+      23183.0,
+      24804.285714285714,
+      26425.571428571428,
+      28046.857142857145,
+      29668.142857142855,
+      31289.428571428572,
+      32910.71428571429,
+      34532.0,
+      36153.28571428571,
+      37774.57142857143,
+      39395.857142857145,
+      41017.142857142855,
+      42638.42857142857,
+      44259.71428571429,
+      45881.0
+    ]
+  },
+  "actual": {
+    "votes": [
+      {
+        "party": "LR",
+        "value": 33889
+      },
+      {
+        "party": "RN+",
+        "value": 26116
+      }
+    ],
+    "winner": "LR"
+  }
+}

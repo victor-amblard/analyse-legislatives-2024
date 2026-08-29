@@ -1,3 +1,13 @@
 .ipynb_checkpoints
 .venv/
 __pycache__/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+research/artifacts/
+artifacts/cache/
+# Astro static site
+site/node_modules/
+site/dist/
+site/.astro/
+.agents/
