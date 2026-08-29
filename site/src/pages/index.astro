@@ -1,0 +1,19 @@
+---
+import { getCollection, render } from 'astro:content';
+import Post from '../layouts/Post.astro';
+
+// Français à la racine : c'est la version par défaut du site.
+const [post] = await getCollection('posts', (p) => p.data.lang === 'fr');
+const { Content, headings } = await render(post);
+---
+
+<Post
+  title={post.data.title}
+  description={post.data.description}
+  date={post.data.date}
+  author={post.data.author}
+  lang="fr"
+  headings={headings}
+>
+  <Content />
+</Post>

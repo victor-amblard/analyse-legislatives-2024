@@ -1,0 +1,100 @@
+---
+import type { MarkdownHeading } from 'astro';
+import { UI, type Locale } from '../i18n';
+
+interface Props {
+  headings: MarkdownHeading[];
+  lang: Locale;
+}
+
+const { headings, lang } = Astro.props;
+
+// On ne garde que h2/h3 : les h1 servent de séparateurs de grandes parties dans
+// le writeup et feraient un sommaire à deux entrées inutiles.
+const items = headings.filter(
+  (h) => (h.depth === 2 || h.depth === 3) && h.slug !== 'footnote-label',
+);
+---
+
+<nav class="toc" aria-labelledby="toc-heading">
+  <h2 id="toc-heading" class="toc-title">{UI[lang].tocTitle}</h2>
+  <ol>
+    {
+      items.map((h) => (
+        <li class:list={[`depth-${h.depth}`]}>
+          <a href={`#${h.slug}`} data-toc-link={h.slug}>
+            <Fragment set:html={h.text} />
+          </a>
+        </li>
+      ))
+    }
+  </ol>
+</nav>
+
+<style>
+  .toc {
+    font-size: 0.83rem;
+    line-height: 1.45;
+  }
+
+  .toc-title {
+    margin: 0 0 0.7rem;
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    border: 0;
+    padding: 0;
+  }
+
+  ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    /* Le sommaire peut dépasser la hauteur de la fenêtre : il défile
+       indépendamment plutôt que d'être tronqué. */
+    max-height: calc(100vh - 8rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  li {
+    margin: 0;
+    border-inline-start: 2px solid var(--rule);
+  }
+
+  .depth-3 a {
+    padding-inline-start: 1.6rem;
+    font-size: 0.95em;
+    color: var(--ink-muted);
+  }
+
+  a {
+    display: block;
+    padding: 0.28rem 0.6rem;
+    color: var(--ink-muted);
+    text-decoration: none;
+    transition: color 0.12s ease;
+  }
+
+  a:hover {
+    color: var(--ink);
+  }
+
+  /* L'entrée active est signalée par la COULEUR ET le trait de gauche : deux
+     canaux, pour ne pas dépendre de la seule couleur. */
+  li:has(a[aria-current='true']) {
+    border-inline-start-color: var(--accent);
+  }
+
+  a[aria-current='true'] {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    a { transition: none; }
+  }
+</style>

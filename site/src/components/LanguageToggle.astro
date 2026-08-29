@@ -1,0 +1,62 @@
+---
+import { LOCALES, UI, pathFor, type Locale } from '../i18n';
+
+interface Props {
+  current: Locale;
+}
+
+const { current } = Astro.props;
+---
+
+<nav class="lang" aria-label="Language">
+  {
+    LOCALES.map((locale) =>
+      locale === current ? (
+        <span class="on" aria-current="true">{UI[locale].name}</span>
+      ) : (
+        // hreflang + un libellé écrit DANS la langue cible : un lecteur qui ne
+        // lit pas la langue courante doit pouvoir reconnaître son bouton.
+        <a href={pathFor(locale)} hreflang={locale} lang={locale}>
+          {UI[locale].name}
+        </a>
+      ),
+    )
+  }
+</nav>
+
+<style>
+  .lang {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    overflow: hidden;
+    font-size: 0.78rem;
+    line-height: 1;
+    background: var(--surface-raised);
+  }
+
+  .lang > * {
+    padding: 0.42rem 0.8rem;
+    text-decoration: none;
+    color: var(--ink-muted);
+    transition: background-color 0.12s ease, color 0.12s ease;
+  }
+
+  .lang > a:hover {
+    color: var(--ink);
+    background: var(--accent-soft);
+  }
+
+  /* La langue active est signalée par le fond ET le poids du texte, pas par la
+     seule couleur. */
+  .on {
+    background: var(--accent);
+    color: var(--surface-raised);
+    font-weight: 600;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lang > * { transition: none; }
+  }
+</style>

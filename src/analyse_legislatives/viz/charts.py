@@ -43,11 +43,8 @@ def bin_series(series: pl.Series, n_bins: int = 30) -> pd.DataFrame:
     return binned.groupby(["bin_low", "bin_high"], as_index=False).size()
 
 
-def render_expressed_share_chart(
-    binned_df: pd.DataFrame, title: str, selection: alt.Parameter
-):
-    """Histogramme des suffrages exprimés nationaux, cliquable (la barre
-    sélectionnée reste colorée, les autres sont grisées)."""
+def render_expressed_share_chart(binned_df: pd.DataFrame, title: str):
+    """Histogramme des suffrages exprimés nationaux simulés."""
     return (
         alt.Chart(binned_df)
         .mark_bar()
@@ -58,14 +55,13 @@ def render_expressed_share_chart(
             ),
             x2="bin_high:Q",
             y=alt.Y("size:Q", title="Nombre de simulations"),
-            color=alt.condition(selection, alt.value("#4C78A8"), alt.value("#bbbbbb")),
+            color=alt.value("#4C78A8"),
             tooltip=[
                 alt.Tooltip("bin_low:Q", title="De (%)", format=".1f"),
                 alt.Tooltip("bin_high:Q", title="À (%)", format=".1f"),
                 alt.Tooltip("size:Q", title="Simulations"),
             ],
         )
-        .add_params(selection)
         .properties(height=220, title=title)
     )
 
@@ -113,45 +109,53 @@ def render_district_wins_vs_non_expressed_chart(
     )
 
 
-def render_seats_vs_non_expressed_chart(conditional_df: pl.DataFrame) -> alt.Chart:
-    """Courbes des sièges médians par tranche d'un point de non-exprimés."""
+def render_seats_vs_non_expressed_chart(
+    conditional_df: pl.DataFrame, selection: alt.Parameter | None = None
+) -> alt.Chart:
+    """Courbes des sièges médians par tranche d'un point de non-exprimés.
+
+    Quand une sélection est fournie, cliquer un point sélectionne toute sa
+    tranche — donc les points de tous les partis au même niveau de non-exprimés.
+    """
     domain = list(SPECTRUM_LABELS)
     colors = [color_for(PoliticalFamily(party)) for party in domain]
-    return (
-        alt.Chart(conditional_df)
-        .mark_line(point=alt.OverlayMarkDef(size=55), strokeWidth=2)
-        .encode(
-            x=alt.X(
-                "non_exprimés:Q",
-                title="Non-exprimés simulés (% des inscrits, 2nd tour)",
-                scale=alt.Scale(zero=False),
-            ),
-            y=alt.Y(
-                "sieges_medians:Q",
-                title="Nombre médian de sièges",
-                scale=alt.Scale(zero=False),
-            ),
-            color=alt.Color(
-                "parti:N",
-                title="Parti",
-                scale=alt.Scale(domain=domain, range=colors),
-                sort=domain,
-            ),
-            tooltip=[
-                alt.Tooltip("parti:N", title="Parti"),
-                alt.Tooltip("tranche_basse:Q", title="De (%)", format=".0f"),
-                alt.Tooltip("tranche_haute:Q", title="À (%)", format=".0f"),
-                alt.Tooltip("sieges_medians:Q", title="Sièges médians", format=".0f"),
-                alt.Tooltip("p05:Q", title="Sièges, p05", format=".0f"),
-                alt.Tooltip("p95:Q", title="Sièges, p95", format=".0f"),
-                alt.Tooltip("simulations:Q", title="Simulations", format=".0f"),
-            ],
-        )
-        .properties(
-            height=420,
-            title="Sièges médians par point de non-exprimés",
-        )
-        .interactive()
+    base = alt.Chart(conditional_df).encode(
+        x=alt.X(
+            "non_exprimés:Q",
+            title="Non-exprimés simulés (% des inscrits, 2nd tour)",
+            scale=alt.Scale(zero=False),
+        ),
+        y=alt.Y(
+            "sieges_medians:Q",
+            title="Nombre médian de sièges",
+            scale=alt.Scale(zero=False),
+        ),
+        color=alt.Color(
+            "parti:N",
+            title="Parti",
+            scale=alt.Scale(domain=domain, range=colors),
+            sort=domain,
+        ),
+        tooltip=[
+            alt.Tooltip("parti:N", title="Parti"),
+            alt.Tooltip("tranche_basse:Q", title="De (%)", format=".0f"),
+            alt.Tooltip("tranche_haute:Q", title="À (%)", format=".0f"),
+            alt.Tooltip("sieges_medians:Q", title="Sièges médians", format=".0f"),
+            alt.Tooltip("p05:Q", title="Sièges, p05", format=".0f"),
+            alt.Tooltip("p95:Q", title="Sièges, p95", format=".0f"),
+            alt.Tooltip("simulations:Q", title="Simulations", format=".0f"),
+        ],
+    )
+    chart = base.mark_line(point=alt.OverlayMarkDef(size=55), strokeWidth=2)
+    if selection is not None:
+        selected_points = base.mark_point(
+            size=150, filled=True, stroke="white", strokeWidth=1.5
+        ).transform_filter(selection)
+        chart = (chart + selected_points).add_params(selection)
+
+    return chart.properties(
+        height=420,
+        title="Sièges médians selon le niveau de non-exprimés",
     )
 
 
@@ -196,11 +200,13 @@ def _clip_line_to_box(x0, y0, slope, domain_x, domain_y):
     )
 
 
-def render_ternary_chart(
+def _render_ternary_chart(
     circo_df_with_abs: pl.DataFrame,
     party_left: str,
     party_right: str,
     title: str,
+    margin_selection: alt.Parameter | None = None,
+    margin_parties: tuple[str, str] | None = None,
 ):
     """
     Diagramme ternaire : chaque simulation est un point positionné selon ses parts
@@ -234,6 +240,9 @@ def render_ternary_chart(
     wide["side"] = np.where(
         wide[party_left] > wide[party_right], party_left, party_right
     )
+    if margin_parties is not None:
+        party_a, party_b = margin_parties
+        wide["margin"] = wide[party_a] - wide[party_b]
 
     pad_x = max((wide["tx"].max() - wide["tx"].min()) * 0.3, 0.03)
     pad_y = max((wide["ty"].max() - wide["ty"].min()) * 0.3, 0.03)
@@ -326,12 +335,35 @@ def render_ternary_chart(
         .encode(**xy_encoding())
     )
 
-    def edge_label(x, y, text, align, color="black"):
+    def edge_label(x, y, text, align, color="black", angle=0):
         return (
             alt.Chart(pd.DataFrame({"x": [x], "y": [y]}))
-            .mark_text(align=align, fontSize=12, fontWeight="bold", color=color)
+            .mark_text(
+                align=align,
+                angle=angle,
+                fontSize=12,
+                fontWeight="bold",
+                color=color,
+            )
             .encode(text=alt.value(text), **xy_encoding())
         )
+
+    # La vue est zoomée et sa largeur est responsive : un angle fixe de 30°
+    # ne pointe vers les sommets que dans un triangle équilatéral non déformé.
+    # Dans une concaténation Vega-Lite, `height` désigne le conteneur, pas ce
+    # panneau. On garde donc sa hauteur explicite et seule sa largeur s'adapte.
+    chart_height = 440
+    x_span = float(domain_x[1] - domain_x[0])
+    y_span = float(domain_y[1] - domain_y[0])
+    sqrt3 = float(np.sqrt(3))
+    degrees_per_radian = float(180 / np.pi)
+    screen_angle = (
+        f"atan2({chart_height} * {x_span!r}, "
+        f"width * {y_span!r} * {sqrt3!r}) "
+        f"* {degrees_per_radian!r}"
+    )
+    left_angle = alt.ExprRef(expr=f"360 - ({screen_angle})")
+    right_angle = alt.ExprRef(expr=screen_angle)
 
     direction_labels = (
         edge_label(
@@ -340,6 +372,7 @@ def render_ternary_chart(
             f"◄ plus {party_left}",
             "left",
             POLITICAL_FAMILY_COLORS[party_left],
+            left_angle,
         )
         + edge_label(
             domain_x[1],
@@ -347,34 +380,62 @@ def render_ternary_chart(
             f"plus {party_right} ►",
             "right",
             POLITICAL_FAMILY_COLORS[party_right],
+            right_angle,
         )
         + edge_label(mid_x, domain_y[1], "▲ plus de non-exprimés", "center")
     )
 
-    points = (
-        alt.Chart(wide)
-        .mark_circle(size=25, opacity=0.35)
-        .encode(
-            x=alt.X("tx:Q", axis=None, scale=alt.Scale(domain=domain_x)),
-            y=alt.Y("ty:Q", axis=None, scale=alt.Scale(domain=domain_y)),
-            color=alt.Color(
-                "side:N",
-                scale=alt.Scale(
-                    domain=[party_left, party_right],
-                    range=[
-                        POLITICAL_FAMILY_COLORS[party_left],
-                        POLITICAL_FAMILY_COLORS[party_right],
-                    ],
-                ),
-                legend=alt.Legend(title="Vainqueur"),
-            ),
-            tooltip=[
-                alt.Tooltip(f"{party_left}:Q", title=f"Voix {party_left}"),
-                alt.Tooltip(f"{party_right}:Q", title=f"Voix {party_right}"),
-                alt.Tooltip(f"{NON_EXPRIMES}:Q", title="Non exprimé"),
-            ],
-        )
+    winner_scale = alt.Scale(
+        domain=[party_left, party_right],
+        range=[
+            POLITICAL_FAMILY_COLORS[party_left],
+            POLITICAL_FAMILY_COLORS[party_right],
+        ],
     )
+    point_encodings = dict(
+        x=alt.X("tx:Q", axis=None, scale=alt.Scale(domain=domain_x)),
+        y=alt.Y("ty:Q", axis=None, scale=alt.Scale(domain=domain_y)),
+        color=alt.Color(
+            "side:N",
+            scale=winner_scale,
+            legend=alt.Legend(title="Vainqueur"),
+        ),
+        tooltip=[
+            alt.Tooltip(f"{party_left}:Q", title=f"Voix {party_left}"),
+            alt.Tooltip(f"{party_right}:Q", title=f"Voix {party_right}"),
+            alt.Tooltip(f"{NON_EXPRIMES}:Q", title="Non exprimé"),
+        ],
+    )
+    if margin_selection is not None:
+        point_encodings["opacity"] = alt.condition(
+            margin_selection, alt.value(0.35), alt.value(0.05), empty=True
+        )
+    else:
+        point_encodings["opacity"] = alt.value(0.35)
+
+    points = alt.Chart(wide).mark_circle(size=25).encode(**point_encodings)
+    highlighted_points = None
+    if margin_selection is not None:
+        highlighted_points = (
+            alt.Chart(wide)
+            .mark_circle(
+                size=70,
+                opacity=0.9,
+                stroke="white",
+                strokeWidth=1,
+            )
+            .encode(
+                x=point_encodings["x"],
+                y=point_encodings["y"],
+                color=alt.Color(
+                    "side:N",
+                    scale=winner_scale,
+                    legend=None,
+                ),
+                tooltip=point_encodings["tooltip"],
+            )
+            .transform_filter(margin_selection)
+        )
 
     barycenter_df = pd.DataFrame(
         {
@@ -405,19 +466,24 @@ def render_ternary_chart(
         )
     )
 
-    return (
-        (
-            oblique_gridlines
-            + expressed_gridlines
-            + gridline_text
-            + tie_line
-            + points
-            + barycenter
-            + direction_labels
-        )
-        .properties(width=480, height=440, title=title)
-        .configure_view(strokeWidth=0)
+    chart = oblique_gridlines + expressed_gridlines + gridline_text + tie_line + points
+    if highlighted_points is not None:
+        chart += highlighted_points
+    return (chart + barycenter + direction_labels).properties(
+        width=480, height=chart_height, title=title
     )
+
+
+def render_ternary_chart(
+    circo_df_with_abs: pl.DataFrame,
+    party_left: str,
+    party_right: str,
+    title: str,
+):
+    """Diagramme ternaire autonome, sans sélection liée."""
+    return _render_ternary_chart(
+        circo_df_with_abs, party_left, party_right, title
+    ).configure_view(strokeWidth=0)
 
 
 def render_dirichlet_simplex(
@@ -504,12 +570,13 @@ def render_dirichlet_simplex(
     )
 
 
-def render_margin_chart(
+def _render_margin_chart(
     circo_df_with_abs: pl.DataFrame,
     party_a: str,
     party_b: str,
     title: str,
-    maxbins: int = 40,
+    selection: alt.Parameter,
+    maxbins: int,
 ):
     """
     Distribution de l'écart de voix (party_a − party_b) sur les simulations,
@@ -523,44 +590,106 @@ def render_margin_chart(
     wide["margin"] = wide[party_a] - wide[party_b]
     wide["side"] = np.where(wide["margin"] > 0, party_a, party_b)
 
-    click = alt.selection_point(
-        encodings=["x"], on="click", clear="dblclick", empty=True
+    x_margin = alt.X(
+        "margin:Q",
+        title=f"Écart de voix ({party_a} − {party_b})",
+        bin=alt.Bin(maxbins=maxbins),
     )
+    y_count = alt.Y("count():Q", title="Nombre de simulations")
+    side_color = alt.Color(
+        "side:N",
+        scale=alt.Scale(
+            domain=[party_a, party_b],
+            range=[
+                POLITICAL_FAMILY_COLORS[party_a],
+                POLITICAL_FAMILY_COLORS[party_b],
+            ],
+        ),
+        legend=None,
+    )
+    count_tooltip = [alt.Tooltip("count():Q", title="Simulations")]
     margin_bars = (
         alt.Chart(wide)
         .mark_bar()
         .encode(
-            x=alt.X(
-                "margin:Q",
-                title=f"Écart de voix ({party_a} − {party_b})",
-                bin=alt.Bin(maxbins=maxbins),
-            ),
-            y=alt.Y("count():Q", title="Nombre de simulations"),
+            x=x_margin,
+            y=y_count,
             color=alt.condition(
-                click,
-                alt.Color(
-                    "side:N",
-                    scale=alt.Scale(
-                        domain=[party_a, party_b],
-                        range=[
-                            POLITICAL_FAMILY_COLORS[party_a],
-                            POLITICAL_FAMILY_COLORS[party_b],
-                        ],
-                    ),
-                    legend=None,
-                ),
+                selection,
+                side_color,
                 alt.value("#dddddd"),
+                empty=True,
             ),
-            tooltip=[alt.Tooltip("count():Q", title="Simulations")],
+            tooltip=count_tooltip,
         )
-        .add_params(click)
+        .add_params(selection)
+    )
+    selected_bar = (
+        alt.Chart(wide)
+        .transform_filter(selection)
+        .mark_bar()
+        .encode(
+            x=x_margin,
+            y=y_count,
+            color=side_color,
+            tooltip=count_tooltip,
+        )
     )
     zero_line = (
         alt.Chart(pd.DataFrame({"x": [0]}))
         .mark_rule(color="black", strokeDash=[4, 4])
         .encode(x="x:Q")
     )
-    return (margin_bars + zero_line).properties(height=220, title=title)
+    return (margin_bars + selected_bar + zero_line).properties(height=220, title=title)
+
+
+def render_margin_chart(
+    circo_df_with_abs: pl.DataFrame,
+    party_a: str,
+    party_b: str,
+    title: str,
+    maxbins: int = 40,
+):
+    """Histogramme autonome de l'écart de voix."""
+    selection = alt.selection_point(
+        name="margin_bin", encodings=["x"], on="click", clear="dblclick", empty=False
+    )
+    return _render_margin_chart(
+        circo_df_with_abs, party_a, party_b, title, selection, maxbins
+    )
+
+
+def render_duel_charts(
+    circo_df_with_abs: pl.DataFrame,
+    party_left: str,
+    party_right: str,
+    party_a: str,
+    party_b: str,
+    ternary_title: str,
+    margin_title: str,
+    maxbins: int = 40,
+):
+    """Relie l'histogramme de marge aux simulations du diagramme ternaire."""
+    selection = alt.selection_point(
+        name="margin_bin", encodings=["x"], on="click", clear="dblclick", empty=False
+    )
+    ternary = _render_ternary_chart(
+        circo_df_with_abs,
+        party_left,
+        party_right,
+        ternary_title,
+        margin_selection=selection,
+        margin_parties=(party_a, party_b),
+    )
+    margin = _render_margin_chart(
+        circo_df_with_abs,
+        party_a,
+        party_b,
+        margin_title,
+        selection,
+        maxbins,
+    )
+    return alt.vconcat(ternary, margin).configure_view(strokeWidth=0)
 
 
 def hemicycle_positions(
@@ -620,7 +749,11 @@ def hemicycle_positions(
 def render_hemicycle(seats_per_party: Mapping[str, int]):
     return (
         alt.Chart(hemicycle_positions(seats_per_party))
-        .mark_circle(size=120)
+        .mark_circle(
+            # L'aire diminue avec le carré de la largeur : le diamètre des
+            # sièges suit donc la largeur disponible sans devenir illisible.
+            size=alt.ExprRef(expr="clamp(width * width / 4800, 24, 120)")
+        )
         .encode(
             x=alt.X("x:Q", axis=None, scale=alt.Scale(domain=[-11, 11])),
             y=alt.Y("y:Q", axis=None, scale=alt.Scale(domain=[-0.5, 10.5])),
@@ -634,7 +767,7 @@ def render_hemicycle(seats_per_party: Mapping[str, int]):
             ),
             tooltip=["party:N"],
         )
-        .properties(width=760, height=400)
+        .properties(height=400)
         .configure_view(strokeWidth=0)
     )
 
@@ -704,7 +837,7 @@ def render_duel_sankey(
     )
     fig.update_layout(
         title_text=(
-            f"Exemple — duel {label(party_a)} / {label(party_b)} : "
+            f"Exemple : duel {label(party_a)} / {label(party_b)} : "
             "où vont les voix des partis éliminés et des non-exprimés du 1er tour ?"
         ),
         font_size=12,

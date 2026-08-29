@@ -40,16 +40,15 @@ from analyse_legislatives.config import (
 )
 from analyse_legislatives.models import DEFAULT_MODEL
 from analyse_legislatives.parties import NON_EXPRIMES, SPECTRUM_LABELS
-from analyse_legislatives.viz import format_interval, format_number
+from analyse_legislatives.viz import color_for, format_interval, format_number
 from analyse_legislatives.viz.charts import (
     bin_series,
     render_district_wins_vs_non_expressed_chart,
     render_dominant_party_chart,
+    render_duel_charts,
     render_expressed_share_chart,
     render_hemicycle,
-    render_margin_chart,
     render_seats_vs_non_expressed_chart,
-    render_ternary_chart,
 )
 from analyse_legislatives.viz.methodology import render as render_methodology
 
@@ -123,15 +122,16 @@ def render_seat_panel(seats_by_simu: pl.DataFrame) -> None:
     """Métriques par parti + hémicycle du scénario le plus représentatif."""
     median_seats = projections.median_scenario_seats(seats_by_simu)
     render_seat_metrics(seats_by_simu, median_seats)
-    st.columns(3)[1].altair_chart(render_hemicycle(median_seats), width="content")
+    with st.container(horizontal_alignment="center"):
+        # Streamlit plafonne cette largeur à celle du parent sur petit écran.
+        st.altair_chart(render_hemicycle(median_seats), width=760)
 
 
 st.set_page_config(page_title="Législatives 2024 — projections", layout="wide")
-st.title("Projections du 2nd tour — élections législatives 2024")
+st.title("Élections législatives 2024 : modélisation du 2nd tour")
 st.caption(
     "Modélisation simplifiée des reports de voix (voir le README du dépôt pour la "
-    "méthodologie). NOTE : ces projections ne constituent pas des sondages au sens "
-    "de la loi du 19 juillet 1977."
+    "méthodologie)."
 )
 
 first_round = first_round_data()
@@ -153,9 +153,9 @@ tab_national, tab_circo, tab_methodo = st.tabs(
 
 with tab_national:
     seats_by_simu = national_seats(digest, artifact_ids)
+    st.subheader("Projection des sièges")
     render_seat_panel(seats_by_simu)
 
-    st.divider()
     st.subheader("Qui arrive en tête ?")
     st.caption(
         "Probabilité d'être l'unique premier groupe en sièges, sur les mêmes "
@@ -163,79 +163,70 @@ with tab_national:
     )
     st.altair_chart(render_dominant_party_chart(seats_by_simu), width="stretch")
 
-    st.divider()
+    st.subheader("Participation simulée")
     expressed_by_simu = national_expressed_share(digest, artifact_ids)
-    col_metric, col_chart = st.columns([1, 2])
-    with col_metric:
-        st.metric(
-            "Taux de suffrages exprimés national simulé (2nd tour)",
-            f"{expressed_by_simu.median():.1f} %",
-            format_interval(expressed_by_simu, " %"),
-            delta_color="off",
-        )
-    with col_chart:
-        expressed_selection = alt.selection_point(
-            name="expressed_bin",
-            fields=["bin_low", "bin_high"],
-            on="click",
-            clear="dblclick",
-            empty=False,
-        )
-        expressed_event = st.altair_chart(
-            render_expressed_share_chart(
-                bin_series(expressed_by_simu),
-                "Distribution des suffrages exprimés nationaux simulés "
-                "(cliquer une barre pour voir les sièges conditionnels)",
-                expressed_selection,
-            ),
-            width="stretch",
-            on_select="rerun",
-            key="expressed_hist_national",
-        )
+    with st.container(border=True):
+        col_metric, col_chart = st.columns([1, 2], vertical_alignment="center")
+        with col_metric:
+            st.metric(
+                "Taux de suffrages exprimés national simulé (2nd tour)",
+                f"{expressed_by_simu.median():.1f} %",
+                format_interval(expressed_by_simu, " %"),
+                delta_color="off",
+            )
+        with col_chart:
+            st.altair_chart(
+                render_expressed_share_chart(
+                    bin_series(expressed_by_simu),
+                    "Distribution des suffrages exprimés nationaux simulés",
+                ),
+                width="stretch",
+            )
 
-    selected_bins = list(expressed_event.selection.get("expressed_bin") or [])
-
-    st.subheader("Sièges conditionnellement au niveau de non-exprimés")
-    st.caption(
-        "Chaque point agrège les simulations situées dans une tranche d'un point "
-        "de pourcentage et montre leur nombre médian de sièges. Dans le "
-        "modèle, les non-exprimés regroupent abstention, votes blancs et votes nuls ; "
-        "les sièges incluent ceux acquis dès le 1er tour."
-    )
+    st.subheader("Sensibilité de la projection à la participation")
     conditional_prediction = projections.conditional_seats_by_non_expressed(
         seats_by_simu, expressed_by_simu
     )
-    st.altair_chart(
-        render_seats_vs_non_expressed_chart(conditional_prediction),
-        width="stretch",
-        key="seats_vs_non_expressed",
+    non_expressed_selection = alt.selection_point(
+        name="non_expressed_bin",
+        fields=["tranche_basse", "tranche_haute"],
+        on="click",
+        clear="dblclick",
+        empty=False,
     )
-
-    st.divider()
-    if selected_bins:
-        lo, hi = selected_bins[0]["bin_low"], selected_bins[0]["bin_high"]
-        selected = (expressed_by_simu >= lo) & (expressed_by_simu <= hi)
-        conditional_seats = seats_by_simu.filter(selected)
-    else:
-        conditional_seats = None
-
-    if conditional_seats is not None and len(conditional_seats) > 0:
-        st.subheader("Sièges conditionnels au niveau de suffrages exprimés sélectionné")
+    with st.container(border=True):
         st.caption(
-            f"Suffrages exprimés entre {lo:.1f} % et {hi:.1f} % "
-            f"({len(conditional_seats)} simulations sur {len(seats_by_simu)}) — "
-            "double-cliquer sur l'histogramme pour réinitialiser."
+            "Chaque point agrège les simulations situées dans une tranche d'un "
+            "point de non-exprimés et montre leur nombre médian de sièges. Cliquez "
+            "un point pour afficher juste dessous la projection correspondante ; "
+            "double-cliquez pour réinitialiser."
         )
-        render_seat_panel(conditional_seats)
-    elif selected_bins:
-        st.warning(
-            "Aucune simulation dans ce bin — cliquez une autre barre de l'histogramme."
+        non_expressed_event = st.altair_chart(
+            render_seats_vs_non_expressed_chart(
+                conditional_prediction, non_expressed_selection
+            ),
+            width="stretch",
+            on_select="rerun",
+            key="seats_vs_non_expressed",
         )
-    else:
-        st.caption(
-            "Cliquez une barre de l'histogramme des suffrages exprimés ci-dessus pour "
-            "voir la distribution des sièges conditionnelle à ce niveau."
+        selected_bins = list(
+            non_expressed_event.selection.get("non_expressed_bin") or []
         )
+
+        if selected_bins:
+            lo = selected_bins[0]["tranche_basse"]
+            hi = selected_bins[0]["tranche_haute"]
+            non_expressed_by_simu = 100 - expressed_by_simu
+            selected = (non_expressed_by_simu >= lo) & (non_expressed_by_simu < hi)
+            conditional_seats = seats_by_simu.filter(selected)
+
+            st.markdown(f"**Projection pour {lo:.0f} à {hi:.0f} % de non-exprimés**")
+            st.caption(
+                f"{len(conditional_seats)} simulations sur {len(seats_by_simu)}."
+            )
+            render_seat_panel(conditional_seats)
+        else:
+            st.caption("Sélectionnez un point du graphique pour détailler sa tranche.")
 
 with tab_circo:
     options = {
@@ -293,11 +284,27 @@ with tab_circo:
         col_table, col_chart = st.columns([2, 3])
 
         with col_table:
-            st.metric(
-                "Vainqueur le plus probable",
-                party_a,
-                f"{summary['% de victoires'][0]:.0f}% des simulations",
+            winner_color = color_for(party_a)
+            st.html(
+                f"""
+                <style>
+                .st-key-district_winner {{
+                    background: color-mix(in srgb, {winner_color} 18%, transparent);
+                    border: 1px solid color-mix(in srgb, {winner_color} 45%, transparent);
+                    border-left: 0.35rem solid {winner_color};
+                    border-radius: 0.5rem;
+                    padding: 0.75rem 1rem 0.5rem;
+                }}
+                </style>
+                """
             )
+            with st.container(key="district_winner"):
+                st.metric(
+                    "Vainqueur le plus probable",
+                    party_a,
+                    f"{summary['% de victoires'][0]:.0f}% des simulations",
+                    delta_color="off",
+                )
             st.dataframe(display_table, width="stretch")
 
             st.metric(
@@ -313,8 +320,7 @@ with tab_circo:
                 )
                 exprimes = median_scenario[party_a] + median_scenario[party_b]
                 st.caption(
-                    "Scénario simulé le plus représentatif (pas des médianes indépendantes) "
-                    "— % exprimés pour les partis, % inscrits pour les suffrages exprimés"
+                    "Scénario simulé le plus représentatif (pas des médianes indépendantes)"
                 )
                 col_a, col_b, col_abs = st.columns(3)
                 col_a.metric(
@@ -341,22 +347,17 @@ with tab_circo:
                     [party_a, party_b], key=SPECTRUM_LABELS.index
                 )
                 st.altair_chart(
-                    render_ternary_chart(
+                    render_duel_charts(
                         circo_df,
                         party_left,
                         party_right,
-                        f"{party_left} / {party_right} / Non exprimé — {choice}",
-                    ),
-                    width="stretch",
-                )
-                st.altair_chart(
-                    render_margin_chart(
-                        circo_df,
                         party_a,
                         party_b,
+                        f"{party_left} / {party_right} / Non exprimé — {choice}",
                         f"Écart {party_a} vs {party_b} — {choice}",
                     ),
                     width="stretch",
+                    key="duel_margin_linked",
                 )
             else:
                 race_type = {3: "triangulaire", 4: "quadrangulaire"}.get(
@@ -394,13 +395,7 @@ with tab_circo:
             st.caption(
                 "Chaque point regroupe les simulations dont les non-exprimés de "
                 f"cette circonscription tombent dans une tranche d'un point ({low} "
-                "tirages au minimum ; les tranches plus creuses sont écartées). "
-                "**Attention à la lecture** : les non-exprimés locaux sont corrélés "
-                "à 0,91 avec le niveau national, donc cette courbe montre surtout ce "
-                "que devient la circonscription quand la participation NATIONALE "
-                "bouge — pas un effet local propre. Et c'est une relation interne au "
-                "modèle, pas un effet causal identifié : dans trois circonscriptions "
-                "sur quatre elle est plate."
+                "tirages au minimum ; les tranches plus creuses sont écartées)."
             )
 
 
@@ -439,11 +434,3 @@ if tab_methodo.open:
             n_simus=DEFAULT_N_SIMUS,
             seed=DEFAULT_SEED,
         )
-
-        st.subheader("D'un ordre de préférence à une distribution")
-        st.caption(
-            "Ce que le prior autorise pour une ligne de la matrice, dans un duel "
-            "ENS+/RN+. La région délimitée est celle que l'ordre déclaré rend "
-            "compatible ; α gouverne la concentration à l'intérieur."
-        )
-        st.altair_chart(prior_simplex_chart(is_dark()), theme=None, width="stretch")

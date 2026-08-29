@@ -1,0 +1,368 @@
+@import 'katex/dist/katex.min.css';
+
+/* ---------------------------------------------------------------- tokens
+   Palette neutre, légèrement froide, choisie pour ne concurrencer aucune
+   couleur de parti : les graphiques portent les teintes, la page reste sobre.
+   Les deux thèmes sont définis au niveau des variables, jamais dans les règles
+   de composants, pour qu'aucune couleur ne soit définie dans un seul thème. */
+:root {
+  --surface: #fbfbfc;
+  --surface-raised: #ffffff;
+  --ink: #16181d;
+  --ink-muted: #5a616e;
+  --rule: #e3e5ea;
+  --accent: #1f6f6b;
+  --accent-soft: #e8f2f1;
+  --hypothesis-surface: #f5f0e4;
+  --hypothesis-border: #d6b96f;
+  --sidenote-surface: #f1f2f4;
+  --measure: 44rem;
+
+  --font-body: ui-sans-serif, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: ui-serif, Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --surface: #14161a;
+    --surface-raised: #1b1e24;
+    --ink: #e9eaee;
+    --ink-muted: #9aa2b1;
+    --rule: #2b2f38;
+    --accent: #5cb8b1;
+    --accent-soft: #17302f;
+    --hypothesis-surface: #29251d;
+    --hypothesis-border: #9c8249;
+    --sidenote-surface: #202329;
+  }
+}
+
+:root[data-theme='dark'] {
+  --surface: #14161a;
+  --surface-raised: #1b1e24;
+  --ink: #e9eaee;
+  --ink-muted: #9aa2b1;
+  --rule: #2b2f38;
+  --accent: #5cb8b1;
+  --accent-soft: #17302f;
+  --hypothesis-surface: #29251d;
+  --hypothesis-border: #9c8249;
+  --sidenote-surface: #202329;
+}
+
+/* ------------------------------------------------------------------ base */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1.02rem;
+  line-height: 1.68;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding: 4rem 1.25rem 6rem;
+}
+
+/* ------------------------------------------------------------------ prose */
+.prose > * + * { margin-block-start: 1.15em; }
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.25;
+  text-wrap: balance;
+  margin-block: 2.4em 0.6em;
+}
+
+.prose h1 { font-size: 2.1rem; letter-spacing: -0.015em; }
+.prose h2 {
+  font-size: 1.5rem;
+  padding-block-end: 0.3em;
+  border-block-end: 1px solid var(--rule);
+}
+.prose h3 { font-size: 1.18rem; }
+.prose h4 { font-size: 1rem; margin-block: 1.8em 0.4em; }
+
+/* Les hypothèses sont des choix scientifiques, pas de simples sous-titres.
+   Leur id est produit par rehype-slug à partir de « Hypothèse… » ou
+   « Hypothesis… ». Le préfixe commun couvre les accents et les pluriels sans
+   imposer de balisage particulier dans le Markdown. */
+.prose :is(h3, h4)[id^='hypoth'] {
+  padding: 0.7rem 0.9rem;
+  border-inline-start: 4px solid var(--hypothesis-border);
+  border-radius: 4px;
+  background: var(--hypothesis-surface);
+}
+
+.prose :is(h3, h4)[id^='hypoth'] + p {
+  margin-block-start: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--hypothesis-surface) 75%, transparent);
+}
+
+.prose a { color: var(--accent); text-underline-offset: 2px; }
+.prose strong { font-weight: 650; }
+
+.prose blockquote {
+  margin-inline: 0;
+  padding: 0.9rem 1.1rem;
+  border-inline-start: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 4px 4px 0;
+}
+.prose blockquote > :first-child { margin-block-start: 0; }
+.prose blockquote > :last-child { margin-block-end: 0; }
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--surface-raised);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+.prose pre {
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.prose pre code { background: none; border: 0; padding: 0; font-size: 0.85em; }
+
+.prose img,
+.prose svg { max-width: 100%; height: auto; }
+
+/* --------------------------------------------------------------- tableaux
+   Les tableaux de résultats font 8 colonnes et contiennent des maths : sans
+   conteneur défilant, ils débordent le viewport sur mobile et c'est la PAGE
+   qui défile latéralement. Le débordement est confiné ici. */
+.table-scroll {
+  overflow-x: auto;
+  margin-block: 1.6em;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.prose th,
+.prose td {
+  padding: 0.55rem 0.8rem;
+  text-align: left;
+  border-block-end: 1px solid var(--rule);
+  white-space: nowrap;
+}
+
+.prose thead th {
+  background: var(--surface-raised);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.prose tbody tr:last-child td { border-block-end: 0; }
+
+/* KaTeX se pose à 1.21em, calibré sur les métriques de Computer Modern et sur un
+   corps de texte plus petit que celui d'ici. Résultat avec nos 1.02rem : la
+   formule sort à 1.23rem et l'indice à 0.7 x 1.23 = 0.86rem, soit 85 % du texte
+   courant — un indice qui pèse presque autant que la ligne qui l'entoure, ce qui
+   se voit surtout sur les indices composés (`theta_{c,i,j}`, `K_{c_1,c_2}`).
+
+   Le rapport 0.7 vient de TeX et ne se corrige pas cellule par cellule : KaTeX
+   calcule les décalages verticaux des `vlist` en em au moment du rendu, donc
+   toucher aux classes de taille des exposants désaligne les fractions et les
+   racines. On ajuste donc la BASE, et les indices suivent proportionnellement.
+   Seul ce nombre est à régler si le rendu paraît encore trop gros ou trop menu. */
+.prose .katex { font-size: 1.05em; }
+
+/* KaTeX dans une cellule ne doit pas forcer une hauteur de ligne absurde. */
+.prose td .katex,
+.prose th .katex { font-size: 1em; }
+
+/* --------------------------------------------------------- math en bloc
+   KaTeX centre déjà `.katex-display`, mais on fixe explicitement marge et
+   alignement : la règle générique `.prose > * + *` écrase sinon l'espacement
+   vertical, et une formule en display collée au texte se lit comme du math en
+   ligne. Le `overflow-x` confine au bloc les formules plus larges que la mesure
+   de lecture, sans faire défiler la page. */
+.prose .katex-display {
+  display: block;
+  text-align: center;
+  margin-block: 1.9em;
+  padding-block: 0.2em;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* `> * + *` ne doit pas rajouter sa marge par-dessus celle ci-dessus. */
+.prose > .katex-display + * { margin-block-start: 1.9em; }
+
+/* KaTeX pose un `text-align: left` sur la ligne interne quand la formule est
+   numérotée ou trop large ; on garde le centrage dans tous les cas. */
+.prose .katex-display > .katex { text-align: center; }
+
+/* ------------------------------------------------------------ accessibilité */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* ------------------------------------------------------- ancres de titres
+   Le « # » n'apparaît qu'au survol du titre : présent pour qui le cherche,
+   invisible pour qui lit. Il reste atteignable au clavier via le titre. */
+.prose :is(h1, h2, h3, h4) { position: relative; }
+
+.prose .heading-anchor {
+  margin-inline-start: 0.35em;
+  color: var(--ink-muted);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.prose :is(h1, h2, h3, h4):hover .heading-anchor,
+.prose .heading-anchor:focus-visible { opacity: 1; }
+
+/* Sans cela, cliquer une entrée du sommaire place le titre SOUS la barre de
+   progression fixe. */
+.prose :is(h1, h2, h3, h4) { scroll-margin-block-start: 2.5rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .prose .heading-anchor { transition: none; }
+  html { scroll-behavior: auto; }
+}
+
+html { scroll-behavior: smooth; }
+
+/* ---------------------------------------------------------------- figures */
+.prose figure {
+  margin: 2.2em 0;
+}
+
+/* Le SVG peut être plus large que la mesure de lecture : on lui laisse toute
+   la largeur disponible plutôt que de le rétrécir au texte. */
+.prose figure img {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+
+.prose figcaption {
+  margin-block-start: 0.7rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--ink-muted);
+}
+
+/* ------------------------------------------------------- notes de bas de page
+   Le Markdown reste standard (`[^id]`). En dessous de 80rem, Astro rend les
+   notes classiques en fin d'article. Au-dessus, le plugin rehype en place une
+   copie après le paragraphe concerné et cette copie flotte dans la marge droite. */
+.margin-note-ref,
+.sidenote {
+  display: none;
+}
+
+.prose sup a[data-footnote-ref] {
+  font-size: 0.75em;
+  font-weight: 650;
+  text-decoration: none;
+  margin-inline-start: 0.08em;
+}
+
+.prose section[data-footnotes] {
+  margin-block-start: 3.5rem;
+  padding-block-start: 1rem;
+  border-block-start: 1px solid var(--rule);
+  color: var(--ink-muted);
+  font-size: 0.86rem;
+}
+
+.prose section[data-footnotes] h2 {
+  border: 0;
+  margin: 0 0 0.8rem;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.prose section[data-footnotes] li + li { margin-block-start: 0.55rem; }
+.prose section[data-footnotes] p { margin: 0; }
+
+@media (min-width: 80rem) {
+  .footnote-ref-mobile,
+  .prose section[data-footnotes] {
+    display: none;
+  }
+
+  .margin-note-ref {
+    display: inline;
+    color: var(--accent);
+    font-size: 0.75em;
+    font-weight: 650;
+    margin-inline-start: 0.08em;
+  }
+
+  .sidenote {
+    display: block;
+    float: right;
+    clear: right;
+    width: 14rem;
+    margin: 0.2rem -17rem 1.2rem 2rem;
+    padding: 0.7rem 0.8rem;
+    border-inline-start: 2px solid var(--rule);
+    background: var(--sidenote-surface);
+    color: var(--ink-muted);
+    font-size: 0.79rem;
+    line-height: 1.48;
+  }
+
+  .sidenote-number {
+    color: var(--accent);
+    font-weight: 650;
+  }
+}
+
+/* --------------------------------------------------------- vue « tableau »
+   Repliée par défaut : le graphique porte la lecture, le tableau reste la
+   source exacte pour qui en a besoin (lecteur d'écran, copie des chiffres). */
+.prose details {
+  margin-block: 1.4em;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 0.5rem 0.9rem;
+  background: var(--surface-raised);
+}
+
+.prose details[open] { padding-block-end: 0.9rem; }
+
+.prose summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.prose details .table-scroll { margin-block-start: 1rem; }
