@@ -4,14 +4,22 @@ default_model: national_anchored
 
 priors:
   non_expressed_retention_beta: [8.0, 2.0]
-  non_expressed_tilt_uniform: [-1.0, 2.0]
+  non_expressed_tilt_uniform: [-1.0, 1.0]
   qualified_demobilisation_beta: [2.0, 38.0]
   mixing_beta: [2.0, 2.0]
+  # Corrélation intra-département des écarts locaux. Moyenne 0,57, intervalle
+  # central à 90 % [0,27 - 0,84] : la plage mesurée sur le PREMIER tour par
+  # scripts/analyses/first_round_variogram.py (0,47 métropole / 0,77 France
+  # entière), sans utiliser aucun résultat du second tour.
+  block_correlation_beta: [4.0, 3.0]
   dirichlet_alpha_bounds: [0.5, 1.0]  # log-uniform pour la dirichlet de préférences
 expressed_share:
-  # Calibré sur les 4 dernières élections
-  expected_change_pts: -4.34
-  national_band_pts: 8.91
+  # Aucune extrapolation des scrutins passés : le second tour est ancré sur le
+  # premier, sans dérive imposée. Zéro est le seul centre qui n'affirme rien sur
+  # le SENS du mouvement ; la bande est volontairement plus large que les 8,91
+  # points que donnait l'historique, puisqu'on en sait désormais strictement moins.
+  expected_change_pts: 0.0
+  national_band_pts: 10.0
   district_band_pts: 4.0
 
 free_targets: [DIV]
@@ -23,7 +31,8 @@ transfer_orderings:
   NFP+:
     - [DVG]
     - [ENS+]
-    - [LR, DVD, RN+, NON_EXPRIMES]
+    - [LR, DVD]
+    - [RN+, NON_EXPRIMES]
   LR:
     - [DVD, ENS+]
     - [RN+, NFP+, DVG, NON_EXPRIMES]
@@ -33,7 +42,8 @@ transfer_orderings:
   DVG:
     - [NFP+]
     - [ENS+]
-    - [LR, DVD, RN+, NON_EXPRIMES]
+    - [LR, DVD]
+    - [RN+, NON_EXPRIMES]
   DVD:
     - [LR, ENS+]
     - [RN+, NFP+, DVG, NON_EXPRIMES]
