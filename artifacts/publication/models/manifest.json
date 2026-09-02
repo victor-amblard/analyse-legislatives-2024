@@ -1,20 +1,21 @@
 {
-  "generated_at_utc": "2026-08-29T15:46:29.303897+00:00",
+  "generated_at_utc": "2026-09-02T20:22:11.828535+00:00",
   "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 17.0.0 (clang-1700.6.4.2)]",
   "seed": 20240707,
-  "n_simulations": 2000,
+  "n_simulations": 3000,
   "models": [
     "national",
     "national_anchored",
     "kernel_anchored"
   ],
   "figures": true,
-  "app_artifact_generated": true,
-  "app_artifact_dir": "artifacts/app",
-  "kernel_sensitivity_recomputed": false,
+  "app_artifact_generated": false,
+  "app_artifact_dir": null,
+  "kernel_sensitivity_recomputed": true,
   "prior_simulations_per_alpha": 3000,
-  "kernel_sensitivity_simulations_per_cell": null,
-  "config_sha256": "b4a3818c3707feaa469a5ff88ca40e55ec4c22f21da841ec79708a7daa19b600",
+  "demobilisation_sensitivity_recomputed": true,
+  "kernel_sensitivity_simulations_per_cell": 300,
+  "config_sha256": "5f8307479b11cbdc417b4ee8355272638372babb3adedd26d83f3781c05b99ae",
   "config": {
     "seed": 20240707,
     "n_simulations": 2000,
@@ -26,7 +27,7 @@
       ],
       "non_expressed_tilt_uniform": [
         -1.0,
-        2.0
+        1.0
       ],
       "qualified_demobilisation_beta": [
         2.0,
@@ -36,14 +37,18 @@
         2.0,
         2.0
       ],
+      "block_correlation_beta": [
+        4.0,
+        3.0
+      ],
       "dirichlet_alpha_bounds": [
         0.5,
         1.0
       ]
     },
     "expressed_share": {
-      "expected_change_pts": -4.34,
-      "national_band_pts": 8.91,
+      "expected_change_pts": 0.0,
+      "national_band_pts": 10.0,
       "district_band_pts": 4.0
     },
     "free_targets": [
@@ -71,7 +76,9 @@
         ],
         [
           "LR",
-          "DVD",
+          "DVD"
+        ],
+        [
           "RN+",
           "NON_EXPRIMES"
         ]
@@ -109,7 +116,9 @@
         ],
         [
           "LR",
-          "DVD",
+          "DVD"
+        ],
+        [
           "RN+",
           "NON_EXPRIMES"
         ]

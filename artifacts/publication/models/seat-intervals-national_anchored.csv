@@ -1,8 +1,8 @@
 model,party,actual,p05,p25,median,p75,p95
-national_anchored,DIV,10.0,7.0,9.0,9.0,10.0,11.0
-national_anchored,NFP+,181.0,155.0,186.0,204.0,219.0,236.0
+national_anchored,DIV,10.0,7.0,9.0,10.0,10.0,12.0
+national_anchored,NFP+,181.0,156.0,186.0,204.0,217.0,234.0
 national_anchored,DVG,12.0,11.0,12.0,13.0,13.0,14.0
-national_anchored,ENS+,165.0,105.0,127.0,147.0,163.0,180.0
-national_anchored,LR,39.0,8.0,13.0,18.0,28.0,40.049999999999955
-national_anchored,DVD,27.0,11.0,16.0,18.0,22.0,27.0
-national_anchored,RN+,143.0,103.95,140.0,169.5,199.0,236.0
+national_anchored,ENS+,165.0,129.0,154.0,166.0,174.0,184.0
+national_anchored,LR,39.0,20.0,28.0,37.0,40.0,45.0
+national_anchored,DVD,27.0,18.0,22.0,24.0,27.0,30.0
+national_anchored,RN+,143.0,83.0,109.0,131.0,155.0,194.0
