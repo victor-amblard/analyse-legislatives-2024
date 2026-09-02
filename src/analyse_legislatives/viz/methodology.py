@@ -159,10 +159,11 @@ def _render_anchor(
     )
     st.markdown(
         f"$\\delta_{{\\text{{nat}}}}$ est une dérive **nationale**, centrée sur "
-        f"**{expected_change_pts:+.2f} point** de participation : c'est la variation "
-        f"moyenne observée entre les deux tours des législatives de 2007, 2012, 2017 "
-        f"et 2022. $\\delta_c$ est un écart local, indépendant d'une circonscription "
-        f"à l'autre et de moyenne pondérée nulle."
+        f"**{expected_change_pts:+.2f} point** de participation : le modèle "
+        f"n'affirme rien sur le SENS du mouvement entre les deux tours, et se "
+        f"contente de déclarer qu'il peut être ample. $\\delta_c$ est un écart "
+        f"local, corrélé entre circonscriptions d'un même département et de "
+        f"moyenne pondérée nulle."
     )
     st.info(
         "La rétention des non-exprimés n'est alors plus tirée : elle est **déduite** "

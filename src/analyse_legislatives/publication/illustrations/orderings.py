@@ -37,7 +37,7 @@ def build_orderings_svg() -> str:
         widest = max(widest, x)
         y += chip_h + row_gap
 
-    footnote = "Underlined = a tie: the model does not rank these, and draws their order at random."
+    footnote = "Groupes de partis soulignés : le modèle n'ordonne pas ces partis et tire un ordre au hasard à chaque simulation."
     width = max(widest, pad_l + len(footnote) * 5.4) + pad_r
     height = y - row_gap + 34
     parts = [
@@ -50,7 +50,7 @@ def build_orderings_svg() -> str:
     </style>""",
         f'<rect class="surface" width="{width:.0f}" height="{height:.0f}"/>',
         '<text class="muted" x="8" y="24" font-size="10.5" letter-spacing="0.07em">SOURCE</text>',
-        f'<text class="muted" x="{pad_l}" y="24" font-size="10.5" letter-spacing="0.07em">TRANSFERS TO, FROM MOST TO LEAST PREFERRED</text>',
+        f'<text class="muted" x="{pad_l}" y="24" font-size="10.5" letter-spacing="0.07em">Transferts vers... (du plus au moins préféré)</text>',
     ]
 
     for source, row_y, chips, separators in rows:

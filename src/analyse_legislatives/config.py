@@ -67,6 +67,7 @@ class Priors(BaseModel):
     non_expressed_tilt_uniform: Bounds
     qualified_demobilisation_beta: BetaPair
     mixing_beta: BetaPair
+    block_correlation_beta: BetaPair
     dirichlet_alpha_bounds: PositiveBounds
 
 
@@ -129,6 +130,8 @@ DEFAULT_NON_EXPRESSED_TILT_BOUNDS = PRIORS.non_expressed_tilt_uniform
 DEFAULT_QUALIFIED_DEMOBILISATION_PRIOR = PRIORS.qualified_demobilisation_beta
 """Prior Beta du taux national minimal de démobilisation des qualifiés."""
 DEFAULT_MIXING_PRIOR = PRIORS.mixing_beta
+DEFAULT_BLOCK_CORRELATION_PRIOR = PRIORS.block_correlation_beta
+"""Prior Beta de la corrélation intra-département du noyau bloc."""
 DEFAULT_DIRICHLET_ALPHA_BOUNDS = PRIORS.dirichlet_alpha_bounds
 """Bornes de la loi log-uniforme d'alpha, tiré une fois par simulation au
 niveau national."""

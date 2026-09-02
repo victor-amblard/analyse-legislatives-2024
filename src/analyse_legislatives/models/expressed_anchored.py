@@ -212,7 +212,12 @@ class ExpressedShareAnchoredMixin(Model):
         national_change = logit(centre) - logit(national)
         national_change += float(self.rng.normal(0, national_sigma))
 
-        local_change = self.rng.standard_normal(len(districts))
+        # delta_c passe par la structure de dépendance du modèle : indépendant par
+        # circonscription pour les variantes nationales, corrélé par le noyau pour
+        # les variantes locales. Le choc national est déjà porté par
+        # `national_change`, donc ce champ ne mélange PAS de composante commune —
+        # sans quoi le choc national serait compté deux fois.
+        local_change = self.local_shock_field(districts)
         local_change -= weights @ local_change / weights.sum()
 
         # Coeur du modèle logit(r_{c,2}) = logit(r_{c,1}) + delta_nat + delta_c

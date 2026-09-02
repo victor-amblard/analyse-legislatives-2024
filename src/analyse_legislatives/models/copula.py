@@ -28,7 +28,11 @@ from analyse_legislatives.models.base import (
     SimulationParameters,
     TransferRow,
 )
-from analyse_legislatives.models.ordinal import gammas_to_row, uniforms_to_gammas
+from analyse_legislatives.models.ordinal import (
+    gammas_to_row,
+    gammas_to_row_by_district,
+    uniforms_to_gammas,
+)
 
 
 @dataclass
@@ -55,6 +59,20 @@ class CopulaModel(Model):
         cellule de la ligne. `targets` est la liste des destinations, dans l'ordre
         de préférence tiré pour cette simulation."""
 
+    def _local_extension_ranks(
+        self,
+        source_party: Destination,
+        districts: Sequence[CirconscriptionResult],
+        draw: SimulationParameters,
+    ) -> tuple[Sequence[Destination], np.ndarray] | None:
+        """Ordre de préférence propre à chaque circonscription, ou `None`.
+
+        `None` — le défaut — signifie « l'ordre national de `draw.extensions`
+        s'applique partout » : les ex aequo sont départagés une fois pour la
+        France entière. `KernelModel` renvoie un ordre corrélé par le noyau.
+        """
+        return None
+
     def _sample_rows_per_district(
         self,
         districts: Sequence[CirconscriptionResult],
@@ -69,12 +87,20 @@ class CopulaModel(Model):
             # participent à la normalisation de la ligne, seul leur RANG échappe à
             # l'ordre de préférence.
             free = self.free_targets_for(source_party)
-            targets = list(extension) + free
+
+            # Un modèle local peut départager les ex aequo circonscription par
+            # circonscription ; à défaut, l'ordre national de `draw` s'applique
+            # partout.
+            local_order = self._local_extension_ranks(source_party, districts, draw)
+            ordered = extension if local_order is None else local_order[0]
+            targets = list(ordered) + free
 
             uniforms = self._sample_row_uniforms(targets, districts, draw)
-            row = gammas_to_row(
-                uniforms_to_gammas(uniforms, draw.alpha), extension, free
-            )
+            gammas = uniforms_to_gammas(uniforms, draw.alpha)
+            if local_order is None:
+                row = gammas_to_row(gammas, ordered, free)
+            else:
+                row = gammas_to_row_by_district(gammas, ordered, local_order[1], free)
 
             # Les variantes nationales ne produisent qu'une valeur par cellule,
             # partagée par toutes les circonscriptions : on la diffuse ici plutôt

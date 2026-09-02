@@ -1,4 +1,3 @@
-"""Conceptual accounting diagram for turnout flows."""
 
 from analyse_legislatives.publication.illustrations._shared import theme_style
 
@@ -19,9 +18,9 @@ def build_turnout_flows_svg() -> str:
         '<text class="muted" x="650" y="78" text-anchor="middle" font-size="10.5" font-weight="600">2nd tour</text>',
     ]
     boxes = [
-        (24, 92, 168, 58, "#2a78d6", "Partis qualifiés", "réservoir q₍c₎"),
-        (24, 181, 168, 58, "#b56824", "Partis éliminés", "reports T"),
-        (24, 270, 168, 58, "#7b818c", "Non exprimés", "réservoir 1 − r₍c,1₎"),
+        (24, 92, 168, 58, "#2a78d6", "Partis qualifiés", "LR+, RN+"),
+        (24, 181, 168, 58, "#b56824", "Partis éliminés", "ENS+, NFP+, DVG, DVD, DIV"),
+        (24, 270, 168, 58, "#7b818c", "Non exprimés", ""),
         (578, 115, 158, 70, "#2a78d6", "Partis qualifiés", "suffrages exprimés"),
         (578, 249, 158, 70, "#7b818c", "Non exprimés", "abstention, blancs, nuls"),
     ]
@@ -64,7 +63,7 @@ def build_turnout_flows_svg() -> str:
             "arrow-orange",
             297,
             240,
-            "Reports vers NON_EXPR  e₍c₎",
+            "Reports vers NON_EXPR",
         ),
         (
             "M192 287 C335 278 447 189 578 169",
@@ -72,7 +71,7 @@ def build_turnout_flows_svg() -> str:
             "arrow-grey",
             298,
             272,
-            "Mobilisation  (1 − a₍c₎)",
+            "Mobilisation",
         ),
         (
             "M192 310 C340 333 445 324 578 300",
@@ -80,7 +79,7 @@ def build_turnout_flows_svg() -> str:
             "arrow-grey",
             285,
             332,
-            "Rétention  a₍c₎",
+            "Rétention",
         ),
     ]
     for path, colour, marker, text_x, text_y, label in flows:
@@ -93,3 +92,5 @@ def build_turnout_flows_svg() -> str:
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
         f'role="img" aria-label="Schéma des flux entre les deux tours">{"".join(parts)}</svg>\n'
     )
+if __name__ == "__main__":
+    build_turnout_flows_svg()

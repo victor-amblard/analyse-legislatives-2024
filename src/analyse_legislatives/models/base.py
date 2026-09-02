@@ -70,6 +70,7 @@ class Model(ABC):
     rng: np.random.Generator = field(default_factory=np.random.default_rng)
 
     dirichlet_concentration: float | None = None
+    qualified_demobilisation: float | None = None
 
     def __post_init__(self):
         if not self.transfer_orderings:
@@ -101,6 +102,12 @@ class Model(ABC):
         ):
             raise ValueError(
                 "`dirichlet_concentration` doit être strictement positive."
+            )
+        if self.qualified_demobilisation is not None and not (
+            0 <= self.qualified_demobilisation < 1
+        ):
+            raise ValueError(
+                "`qualified_demobilisation` doit appartenir à [0, 1)."
             )
 
         overlap = [
@@ -163,7 +170,9 @@ class Model(ABC):
                 self.rng.beta(*self.non_expressed_retention_prior)
             ),
             qualified_demobilisation=float(
-                self.rng.beta(*self.qualified_demobilisation_prior)
+                self.qualified_demobilisation
+                if self.qualified_demobilisation is not None
+                else self.rng.beta(*self.qualified_demobilisation_prior)
             ),
             mixing_weight=float(self.rng.beta(*self.mixing_prior)),
             tilt=float(self.rng.uniform(*self.non_expressed_tilt_bounds)),
@@ -303,6 +312,33 @@ class Model(ABC):
             },
         )
 
+    def local_shock_field(
+        self, districts: Sequence[CirconscriptionResult]
+    ) -> np.ndarray:
+        """Champ de chocs locaux centrés réduits, un par circonscription.
+
+        Indépendant par défaut : sans structure de dépendance déclarée, deux
+        circonscriptions n'ont aucune raison de dévier ensemble. `KernelModel` le
+        corrèle par son noyau. Utilisé par l'ancrage des suffrages exprimés pour
+        `delta_c`.
+        """
+        return self.rng.standard_normal(len(districts))
+
+    def tilts_for_districts(
+        self,
+        districts: Sequence[CirconscriptionResult],
+        draw: SimulationParameters,
+    ) -> np.ndarray:
+        """Tilt de remobilisation, une valeur par circonscription.
+
+        National par défaut : la valeur tirée dans `draw` est diffusée partout,
+        comme les cellules des lignes de report dans les variantes nationales.
+        `KernelModel` la localise, pour la même raison qu'il localise les reports
+        (hypothèse 6) — sans quoi le plus gros réservoir de voix serait le seul
+        dont la destination ne varierait pas d'une circonscription à l'autre.
+        """
+        return np.full(len(districts), draw.tilt, dtype=float)
+
     @final
     def predict_all_circonscriptions(
         self, districts: Sequence[CirconscriptionResult]
@@ -311,7 +347,8 @@ class Model(ABC):
         circonscription qui en découle."""
         draw = self.draw_simulation()
         matrices = self.sample_transfer_matrices(districts, draw)
+        tilts = self.tilts_for_districts(districts, draw)
         return [
-            self.predict_circonscription(district, matrix, draw.tilt)
-            for district, matrix in zip(districts, matrices)
+            self.predict_circonscription(district, matrix, float(tilt))
+            for district, matrix, tilt in zip(districts, matrices, tilts)
         ]

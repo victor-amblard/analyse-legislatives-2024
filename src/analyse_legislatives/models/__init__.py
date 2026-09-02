@@ -2,7 +2,8 @@
 
 `national` partage une matrice entre toutes les circonscriptions,
 `national_anchored` y ajoute l'ancrage des suffrages exprimés et
-`kernel_anchored` ajoute des variations locales corrélées. La construction des
+`kernel_anchored` ajoute des variations locales corrélées entre
+circonscriptions d'un même département. La construction des
 lignes ordinales est isolée dans :mod:`analyse_legislatives.models.ordinal`.
 
 Les six hypothèses numérotées de `writeup.fr.md` sont signalées en commentaire à
@@ -22,6 +23,7 @@ from analyse_legislatives.config import (
     DEFAULT_EXPECTED_EXPRESSED_CHANGE_PTS,
     DEFAULT_NATIONAL_EXPRESSED_BAND_PTS,
     DEFAULT_FREE_TARGETS,
+    DEFAULT_BLOCK_CORRELATION_PRIOR,
     DEFAULT_MIXING_PRIOR,
     DEFAULT_MODEL,
     DEFAULT_SEED,
@@ -76,6 +78,7 @@ def build(
     qualified_demobilisation_prior: tuple[
         float, float
     ] = DEFAULT_QUALIFIED_DEMOBILISATION_PRIOR,
+    qualified_demobilisation: float | None = None,
     dirichlet_concentration: float | None = None,
     dirichlet_alpha_bounds: tuple[float, float] = DEFAULT_DIRICHLET_ALPHA_BOUNDS,
     **kwargs,
@@ -95,6 +98,8 @@ def build(
     # dans `config/model.yaml` — donc lisibles et contestables — et non posées en
     # défaut dans le code. Le garde-fou du modèle reste actif pour quiconque
     # l'instancie directement.
+    if name == "kernel_anchored":
+        kwargs = {"block_correlation_prior": DEFAULT_BLOCK_CORRELATION_PRIOR} | kwargs
     if name in ("national_anchored", "kernel_anchored"):
         kwargs = {
             "expected_expressed_change_pts": DEFAULT_EXPECTED_EXPRESSED_CHANGE_PTS,
@@ -107,6 +112,7 @@ def build(
         non_expressed_retention_prior=non_expressed_retention_prior,
         non_expressed_tilt_bounds=non_expressed_tilt_bounds,
         qualified_demobilisation_prior=qualified_demobilisation_prior,
+        qualified_demobilisation=qualified_demobilisation,
         mixing_prior=DEFAULT_MIXING_PRIOR,
         free_targets=free_targets,
         dirichlet_concentration=dirichlet_concentration,

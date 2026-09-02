@@ -231,8 +231,18 @@ def _render_ternary_chart(
         .reset_index()
     )
     total = wide[party_left] + wide[party_right] + wide[NON_EXPRIMES]
+    expressed = wide[party_left] + wide[party_right]
     p_right = wide[party_right] / total
     p_abs = wide[NON_EXPRIMES] / total
+
+    left_expressed = f"{party_left} (% exprimés)"
+    right_expressed = f"{party_right} (% exprimés)"
+    expressed_registered = "Suffrages exprimés (% inscrits)"
+    non_expressed_registered = "Non-exprimés (% inscrits)"
+    wide[left_expressed] = wide[party_left] / expressed * 100
+    wide[right_expressed] = wide[party_right] / expressed * 100
+    wide[expressed_registered] = expressed / total * 100
+    wide[non_expressed_registered] = p_abs * 100
 
     sqrt3_2 = float(np.sqrt(3) / 2)
     wide["tx"] = p_right + 0.5 * p_abs
@@ -369,7 +379,7 @@ def _render_ternary_chart(
         edge_label(
             domain_x[0],
             mid_y,
-            f"◄ plus {party_left}",
+            f"← plus {party_left}",
             "left",
             POLITICAL_FAMILY_COLORS[party_left],
             left_angle,
@@ -377,12 +387,18 @@ def _render_ternary_chart(
         + edge_label(
             domain_x[1],
             mid_y,
-            f"plus {party_right} ►",
+            f"plus {party_right} →",
             "right",
             POLITICAL_FAMILY_COLORS[party_right],
             right_angle,
         )
-        + edge_label(mid_x, domain_y[1], "▲ plus de non-exprimés", "center")
+        + edge_label(
+            mid_x,
+            domain_y[1],
+            "↑ plus de non-exprimés",
+            "center",
+            "#999999",
+        )
     )
 
     winner_scale = alt.Scale(
@@ -401,9 +417,10 @@ def _render_ternary_chart(
             legend=alt.Legend(title="Vainqueur"),
         ),
         tooltip=[
-            alt.Tooltip(f"{party_left}:Q", title=f"Voix {party_left}"),
-            alt.Tooltip(f"{party_right}:Q", title=f"Voix {party_right}"),
-            alt.Tooltip(f"{NON_EXPRIMES}:Q", title="Non exprimé"),
+            alt.Tooltip(f"{left_expressed}:Q", format=".1f"),
+            alt.Tooltip(f"{right_expressed}:Q", format=".1f"),
+            alt.Tooltip(f"{expressed_registered}:Q", format=".1f"),
+            alt.Tooltip(f"{non_expressed_registered}:Q", format=".1f"),
         ],
     )
     if margin_selection is not None:
@@ -441,13 +458,10 @@ def _render_ternary_chart(
         {
             "x": [wide["tx"].mean()],
             "y": [wide["ty"].mean()],
-            f"{party_left} (%)": [
-                round(float((wide[party_left] / total).mean() * 100), 1)
-            ],
-            f"{party_right} (%)": [
-                round(float((wide[party_right] / total).mean() * 100), 1)
-            ],
-            "Non exprimé (%)": [round(float(p_abs.mean() * 100), 1)],
+            left_expressed: [wide[left_expressed].mean()],
+            right_expressed: [wide[right_expressed].mean()],
+            expressed_registered: [wide[expressed_registered].mean()],
+            non_expressed_registered: [wide[non_expressed_registered].mean()],
         }
     )
     barycenter = (
@@ -461,7 +475,12 @@ def _render_ternary_chart(
             strokeWidth=1.5,
         )
         .encode(
-            tooltip=[f"{party_left} (%)", f"{party_right} (%)", "Non exprimé (%)"],
+            tooltip=[
+                alt.Tooltip(f"{left_expressed}:Q", format=".1f"),
+                alt.Tooltip(f"{right_expressed}:Q", format=".1f"),
+                alt.Tooltip(f"{expressed_registered}:Q", format=".1f"),
+                alt.Tooltip(f"{non_expressed_registered}:Q", format=".1f"),
+            ],
             **xy_encoding(),
         )
     )

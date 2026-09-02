@@ -12,17 +12,16 @@ import numpy as np
 import pandas as pd
 import polars as pl
 from scipy.special import expit, logit
-from scipy.stats import norm
+from scipy.stats import beta, norm
 
 from analyse_legislatives.config import (
     DEFAULT_EXPECTED_EXPRESSED_CHANGE_PTS,
     DEFAULT_NATIONAL_EXPRESSED_BAND_PTS,
     DEFAULT_SEED,
-    DEFAULT_TRANSFER_ORDERINGS,
     PROJECT_ROOT,
 )
 from analyse_legislatives.data import load_full_results, nuance_to_family
-from analyse_legislatives.parties import NON_EXPRIMES, label as party_label
+from analyse_legislatives.parties import label as party_label
 from analyse_legislatives.publication.sources import load_pollster_ranges
 from analyse_legislatives.viz.palette import POLITICAL_FAMILY_COLORS
 
@@ -37,7 +36,8 @@ MODEL_COLOURS = {
 }
 
 DELTA_EXAMPLE_DRAWS = 20_000
-SIMPLEX_DRAWS = 20_000
+DIRICHLET_SPLIT_ALPHAS = (0.5, 0.75, 1.0)
+TILT_EXAMPLE_VALUES = (-1.0, 0.0, 1.0)
 
 
 def _style(chart: alt.Chart, *, dark: bool = False) -> alt.Chart:
@@ -265,22 +265,22 @@ def withdrawals_chart(*, dark: bool = False) -> alt.Chart:
 
 
 def kernel_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
-    data = pd.read_csv(SENSITIVITY_DIR / "kernel-h-lambda.csv")
+    data = pd.read_csv(SENSITIVITY_DIR / "kernel-rho-lambda.csv")
     data = data[data["party"].isin(["NFP+", "ENS+", "RN+"])].copy()
-    data["h"] = data["bandwidth_multiplier"].map(lambda value: f"×{value:g}")
+    data["rho"] = data["block_correlation"].map(lambda value: f"{value:g}")
     data["lambda"] = data["mixing_weight"].map(lambda value: f"λ={value:g}")
-    data["reference"] = np.isclose(data["bandwidth_multiplier"], 1.0) & np.isclose(
+    data["reference"] = np.isclose(data["block_correlation"], 0.5) & np.isclose(
         data["mixing_weight"], 0.5
     )
 
-    h_order = ["×0.25", "×0.5", "×1", "×2"]
+    rho_order = ["0", "0.25", "0.5", "0.75", "1"]
     lambda_order = ["λ=1", "λ=0.75", "λ=0.5", "λ=0.25", "λ=0"]
     base = alt.Chart(data).encode(
-        x=alt.X("h:N", sort=h_order, title="Bandwidth h"),
+        x=alt.X("rho:N", sort=rho_order, title="Intra-département ρ"),
         y=alt.Y("lambda:N", sort=lambda_order, title=None),
         tooltip=[
             alt.Tooltip("party:N", title="Group"),
-            alt.Tooltip("bandwidth_multiplier:Q", title="h multiplier"),
+            alt.Tooltip("block_correlation:Q", title="ρ"),
             alt.Tooltip("mixing_weight:Q", title="λ"),
             alt.Tooltip("width90:Q", title="90% width", format=".1f"),
         ],
@@ -473,6 +473,77 @@ def alpha_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
     return _style(chart, dark=dark)
 
 
+def demobilisation_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
+    """Seat intervals when the national qualified-voter demobilisation is fixed."""
+    data = pd.read_csv(PRIOR_DIR / "demobilisation-sensitivity.csv")
+    rates = sorted(data["demobilisation"].unique())
+    rate_order = [f"{rate:.0%}" for rate in rates]
+    data["d_label"] = data["demobilisation"].map(lambda value: f"{value:.0%}")
+    parties = list(dict.fromkeys(data["parti"]))
+    colours = {
+        party_label(family): colour
+        for family, colour in POLITICAL_FAMILY_COLORS.items()
+    }
+
+    shared = {
+        "y": alt.Y(
+            "d_label:N",
+            sort=rate_order,
+            title="Fixed d",
+            axis=alt.Axis(ticks=False, grid=False),
+        ),
+        "color": alt.Color(
+            "parti:N",
+            legend=None,
+            scale=alt.Scale(
+                domain=parties,
+                range=[colours.get(party, "#777777") for party in parties],
+            ),
+        ),
+        "tooltip": [
+            alt.Tooltip("parti:N", title="Group"),
+            alt.Tooltip("demobilisation:Q", title="Fixed d", format=".0%"),
+            alt.Tooltip("p05:Q", title="5%", format=".0f"),
+            alt.Tooltip("mediane:Q", title="Median", format=".0f"),
+            alt.Tooltip("p95:Q", title="95%", format=".0f"),
+        ],
+    }
+    intervals = (
+        alt.Chart(data)
+        .mark_rule(strokeWidth=3, strokeCap="round", opacity=0.7)
+        .encode(
+            x=alt.X("p05:Q", title="Seats", scale=alt.Scale(zero=False)),
+            x2="p95:Q",
+            **shared,
+        )
+    )
+    medians = (
+        alt.Chart(data)
+        .mark_point(filled=True, size=42)
+        .encode(
+            x=alt.X("mediane:Q", scale=alt.Scale(zero=False)),
+            **shared,
+        )
+    )
+    chart = (
+        alt.layer(intervals, medians)
+        .properties(width=145, height=125)
+        .facet(
+            facet=alt.Facet("parti:N", sort=parties, title=None),
+            columns=4,
+            title=alt.Title(
+                "Sensitivity to qualified-voter demobilisation",
+                subtitle=(
+                    "National anchored model; median and central 90% "
+                    "prior-predictive interval at each fixed d."
+                ),
+            ),
+        )
+        .resolve_scale(x="independent")
+    )
+    return _style(chart, dark=dark)
+
+
 def seat_results_chart(*, dark: bool = False) -> alt.Chart:
     """Marginal seat intervals for the three published model variants."""
     model_labels = {
@@ -582,6 +653,98 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
     chart = alt.layer(
         interval_90, interval_50, medians, actuals, actual_labels
     ).properties(width=650, height=76 * len(parties))
+    return _style(chart, dark=dark)
+
+
+def conditioned_seat_results_chart(*, dark: bool = False) -> alt.Chart:
+    """Kernel-model seat intervals before and after observing expressed share."""
+    data = pd.read_csv(
+        RESULTS_DIR / "seat-intervals-conditioned-on-expressed.csv"
+    )
+    data = data[data["model"].eq("kernel_anchored")]
+    parties = ["NFP+", "DVG", "ENS+", "LR", "DVD", "RN+", "DIV"]
+    conditions = ["Prior predictive", "Observed expressed share"]
+    colours = ["#5795df", "#d68a45"] if dark else ["#2a78d6", "#b56824"]
+    colour = alt.Color(
+        "conditioning:N",
+        title=None,
+        sort=conditions,
+        scale=alt.Scale(domain=conditions, range=colours),
+        legend=alt.Legend(orient="top", direction="horizontal"),
+    )
+    shared = {
+        "y": alt.Y(
+            "party:N",
+            sort=parties,
+            title=None,
+            axis=alt.Axis(grid=True, ticks=False),
+        ),
+        "yOffset": alt.YOffset("conditioning:N", sort=conditions),
+        "color": colour,
+        "tooltip": [
+            alt.Tooltip("party:N", title="Group"),
+            alt.Tooltip("conditioning:N", title="Distribution"),
+            alt.Tooltip("p05:Q", title="5%", format=".0f"),
+            alt.Tooltip("p25:Q", title="25%", format=".0f"),
+            alt.Tooltip("median:Q", title="Median", format=".0f"),
+            alt.Tooltip("p75:Q", title="75%", format=".0f"),
+            alt.Tooltip("p95:Q", title="95%", format=".0f"),
+            alt.Tooltip("actual:Q", title="Actual", format=".0f"),
+        ],
+    }
+    scale = alt.Scale(domain=[0, 260])
+    intervals_90 = (
+        alt.Chart(data)
+        .mark_rule(strokeWidth=3, opacity=0.78, strokeCap="round")
+        .encode(x=alt.X("p05:Q", title="Seats", scale=scale), x2="p95:Q", **shared)
+    )
+    intervals_50 = (
+        alt.Chart(data)
+        .mark_rule(strokeWidth=9, opacity=0.92, strokeCap="round")
+        .encode(x=alt.X("p25:Q", scale=scale), x2="p75:Q", **shared)
+    )
+    medians = (
+        alt.Chart(data)
+        .mark_point(
+            filled=True,
+            size=55,
+            stroke="#14161a" if dark else "#fbfbfc",
+            strokeWidth=1,
+        )
+        .encode(x=alt.X("median:Q", scale=scale), **shared)
+    )
+    actuals = (
+        alt.Chart(data)
+        .mark_point(
+            shape="diamond",
+            filled=True,
+            size=70,
+            color="#e9eaee" if dark else "#16181d",
+            stroke="#14161a" if dark else "#fbfbfc",
+            strokeWidth=1,
+        )
+        .encode(
+            x=alt.X("actual:Q", scale=scale),
+            y=shared["y"],
+            yOffset=shared["yOffset"],
+            tooltip=shared["tooltip"],
+        )
+    )
+    selected = int(data["selected_draws"].iloc[0])
+    total = int(data["total_draws"].iloc[0])
+    target = float(data["target_expressed_share"].iloc[0])
+    window = float(data["window_points"].iloc[0])
+    chart = alt.layer(intervals_90, intervals_50, medians, actuals).properties(
+        width=650,
+        height=58 * len(parties),
+        title=alt.Title(
+            "Seat intervals conditioned on the observed expressed-vote share",
+            subtitle=(
+                f"Kernel anchored; {selected:,}/{total:,} draws within ±{window:g} "
+                f"point of the observed {target:.2f}%."
+            ),
+        ),
+    )
     return _style(chart, dark=dark)
 
 
@@ -1077,206 +1240,176 @@ def district_expressed_error_chart(*, dark: bool = False) -> alt.Chart:
     return _style(chart, dark=dark)
 
 
-SIMPLEX_DUEL = ("LR", "RN+")
-"""Duel de la circonscription 0101, utilisé comme fil rouge du billet."""
-
-SIMPLEX_SOURCE = "ENS+"
-"""Réservoir éliminé choisi pour illustrer la contrainte ordinale."""
-
-SIMPLEX_ALPHAS = (0.5, 1.0)
-
-
-def restricted_tiers(source_label=SIMPLEX_SOURCE, duel_labels=SIMPLEX_DUEL):
-    """
-    Paliers de préférence d'une ligne, restreints aux seules destinations
-    disponibles dans ce duel : les deux qualifiés et les non-exprimés.
-
-    C'est ce que le modèle applique réellement — `normalize_for_district` retire
-    les colonnes absentes du bulletin — et ça ne coïncide pas nécessairement avec
-    l'ordre complet. En 0101, la ligne ENS+ se réduit à
-    `{LR} > {RN+, NON_EXPRIMES}` : RN+ et la non-expression sont EX AEQUO. La
-    région compatible occupe donc un tiers du simplexe et non un sixième.
-    """
-    by_label = {party_label(p): p for p in DEFAULT_TRANSFER_ORDERINGS}
-    duel = {by_label[label] for label in duel_labels}
-    keep = duel | {NON_EXPRIMES}
-    tiers = DEFAULT_TRANSFER_ORDERINGS[by_label[source_label]]
-    restricted = [[t for t in tier if t in keep] for tier in tiers]
-    return [tier for tier in restricted if tier]
-
-
-def _simplex_draws(tiers, alpha, n=SIMPLEX_DRAWS, seed=DEFAULT_SEED):
-    """
-    Tirages Dirichlet(alpha) contraints par `tiers`, par le mécanisme du modèle.
-
-    `Model.gammas_to_row` normalise des Gamma(alpha) — ce qui donne exactement une
-    Dirichlet — puis affecte les parts TRIÉES le long d'une extension linéaire de
-    l'ordre. Les ex aequo d'un même palier reçoivent donc leurs parts dans un
-    ordre tiré au hasard, ce qui reproduit ici l'union des régions compatibles au
-    lieu d'une seule chaîne stricte.
-    """
-    rng = np.random.default_rng(seed)
-    flat = [t for tier in tiers for t in tier]
-    shares = rng.gamma(alpha, 1.0, size=(n, len(flat)))
-    shares /= shares.sum(axis=1, keepdims=True)
-    shares = np.sort(shares, axis=1)[:, ::-1]
-
-    out = np.empty_like(shares)
-    cursor = 0
-    for tier in tiers:
-        width = len(tier)
-        block = shares[:, cursor : cursor + width]
-        if width > 1:
-            order = np.argsort(rng.random((n, width)), axis=1)
-            block = np.take_along_axis(block, order, axis=1)
-        for offset, destination in enumerate(tier):
-            out[:, flat.index(destination)] = block[:, offset]
-        cursor += width
-    return flat, out
-
-
 def simplex_chart(*, dark: bool = False) -> alt.Chart:
-    """Densité a priori sur le simplexe des trois destinations d'un duel."""
-    tiers = restricted_tiers()
-    flat, _ = _simplex_draws(tiers, 1.0, n=1)
-    names = ["Non-expressed" if d is NON_EXPRIMES else party_label(d) for d in flat]
-    apex, left, right = 0, 1, 2  # le palier de tête occupe le sommet
+    """Theoretical ordered two-way split for three Dirichlet concentrations."""
+    grid = np.linspace(0.002, 0.5, 400)
+    rows = []
+    for alpha in DIRICHLET_SPLIT_ALPHAS:
+        density = 2 * beta.pdf(grid, alpha, alpha)
+        for rate, value in zip(grid, density, strict=True):
+            rows.append(
+                {
+                    "alpha": alpha,
+                    "alpha_label": f"α = {alpha:g}",
+                    "transfer": "ENS+ → RN+",
+                    "rate": rate,
+                    "density": value,
+                }
+            )
+            rows.append(
+                {
+                    "alpha": alpha,
+                    "alpha_label": f"α = {alpha:g}",
+                    "transfer": "ENS+ → LR",
+                    "rate": 1 - rate,
+                    "density": value,
+                }
+            )
 
-    vertices = np.array([[0.5, np.sqrt(3) / 2], [0.0, 0.0], [1.0, 0.0]])
-    bins = 46
-
-    ink = "#e9eaee" if dark else "#16181d"
-    outline = "#555c69" if dark else "#c9cdd5"
-    scheme = "darkblue" if dark else "blues"
-    region_colour = "#7aa7ee" if dark else "#244f9d"
-
-    axes = dict(axis=None, scale=alt.Scale(domain=[0, 1], nice=False))
-    y_axes = dict(axis=None, scale=alt.Scale(domain=[0, np.sqrt(3) / 2], nice=False))
-
-    triangle = pd.DataFrame(
-        {
-            "x": [*vertices[:, 0], vertices[0, 0]],
-            "y": [*vertices[:, 1], vertices[0, 1]],
-            "order": range(4),
-        }
-    )
-    # Frontière de la région compatible : les points dont la part du palier de
-    # tête domine celles du palier suivant. Avec un ex aequo c'est un
-    # cerf-volant (sommet, deux milieux d'arête, centre) et non le triangle
-    # qu'une chaîne strictement ordonnée découperait.
-    corners = np.array(
-        [
-            vertices[apex],
-            (vertices[apex] + vertices[left]) / 2,
-            vertices.mean(axis=0),
-            (vertices[apex] + vertices[right]) / 2,
-            vertices[apex],
+    transfers = ["ENS+ → LR", "ENS+ → RN+"]
+    if dark:
+        colours = ["#39a0ff", "#79aee3"]
+    else:
+        colours = [
+            POLITICAL_FAMILY_COLORS["LR"],
+            POLITICAL_FAMILY_COLORS["RN+"],
         ]
-    )
-    boundary_data = pd.DataFrame(
-        {"x": corners[:, 0], "y": corners[:, 1], "order": range(len(corners))}
-    )
-
-    panels = []
-    for alpha in SIMPLEX_ALPHAS:
-        _, draws = _simplex_draws(tiers, alpha)
-        points = draws @ vertices
-        counts, xe, ye = np.histogram2d(
-            points[:, 0],
-            points[:, 1],
-            bins=[bins, bins],
-            range=[[0, 1], [0, np.sqrt(3) / 2]],
-        )
-        ix, iy = np.nonzero(counts)
-        cells = pd.DataFrame(
-            {
-                "x": xe[ix],
-                "x2": xe[ix + 1],
-                "y": ye[iy],
-                "y2": ye[iy + 1],
-                "density": np.sqrt(counts[ix, iy] / counts.max()),
-            }
-        )
-
-        density = (
-            alt.Chart(cells)
-            .mark_rect()
-            .encode(
-                x=alt.X("x:Q", title=None, **axes),
-                x2="x2:Q",
-                y=alt.Y("y:Q", title=None, **y_axes),
-                y2="y2:Q",
-                color=alt.Color(
-                    "density:Q",
-                    scale=alt.Scale(scheme=scheme, domain=[0, 1]),
-                    legend=None,
-                ),
-            )
-        )
-        frame = (
-            alt.Chart(triangle)
-            .mark_line(color=outline, strokeWidth=1)
-            .encode(x=alt.X("x:Q", **axes), y=alt.Y("y:Q", **y_axes), order="order:O")
-        )
-        edge = (
-            alt.Chart(boundary_data)
-            .mark_line(color=region_colour, strokeWidth=1.8)
-            .encode(x=alt.X("x:Q", **axes), y=alt.Y("y:Q", **y_axes), order="order:O")
-        )
-        # `dx`/`dy` sont des propriétés de mark en Vega-Lite, pas des canaux : ils
-        # ne peuvent pas être encodés par donnée. Une couche par sommet.
-        labels = [
-            alt.Chart(pd.DataFrame({"x": [vertices[i, 0]], "y": [vertices[i, 1]]}))
-            .mark_text(
-                color=ink,
-                font="Arial",
-                fontSize=10,
-                fontWeight=600,
-                dx=dx,
-                dy=dy,
-                align=align,
-            )
-            .encode(
-                x=alt.X("x:Q", **axes),
-                y=alt.Y("y:Q", **y_axes),
-                text=alt.value(name),
-            )
-            for i, name, dx, dy, align in (
-                (apex, names[apex], 0, -9, "center"),
-                (left, names[left], -1, 14, "left"),
-                (right, names[right], 1, 14, "right"),
-            )
-        ]
-        panels.append(
-            alt.layer(density, frame, edge, *labels).properties(
-                width=205,
-                height=190,
-                title=alt.TitleParams(
-                    f"α = {alpha:g}",
-                    anchor="middle",
-                    color=ink,
-                    font="Arial",
-                    fontSize=12,
-                    fontWeight=600,
-                ),
-            )
-        )
-
-    tied = len(tiers) < len(flat)
-    rest = (
-        f"both {names[1]} and {names[2]}, which the declared order leaves tied"
-        if tied
-        else f"{names[1]}, itself above {names[2]}"
-    )
-    chart = alt.hconcat(*panels, spacing=18).properties(
-        title=alt.TitleParams(
-            "Same order, different transfer shapes",
-            subtitle=[
-                f"District 0101: {SIMPLEX_SOURCE} voters in the "
-                f"{SIMPLEX_DUEL[0]}/{SIMPLEX_DUEL[1]} runoff.",
-                f"{names[apex]} stays above {rest}; only α changes the dispersion.",
+    base = (
+        alt.Chart(pd.DataFrame(rows))
+        .mark_line(strokeWidth=2.5)
+        .encode(
+            x=alt.X(
+                "rate:Q",
+                title="Transfer rate",
+                scale=alt.Scale(domain=[0, 1], nice=False),
+                axis=alt.Axis(values=[0, 0.25, 0.5, 0.75, 1], format=".0%"),
+            ),
+            y=alt.Y("density:Q", title="Density", scale=alt.Scale(zero=True)),
+            color=alt.Color(
+                "transfer:N",
+                sort=transfers,
+                scale=alt.Scale(domain=transfers, range=colours),
+                legend=alt.Legend(orient="top", direction="horizontal"),
+            ),
+            tooltip=[
+                alt.Tooltip("alpha:Q", title="α"),
+                alt.Tooltip("transfer:N", title="Transfer"),
+                alt.Tooltip("rate:Q", title="Rate", format=".1%"),
+                alt.Tooltip("density:Q", title="Density", format=".2f"),
             ],
         )
+        .properties(width=200, height=180)
+    )
+    chart = (
+        base.facet(
+            column=alt.Column(
+                "alpha_label:N",
+                sort=[f"α = {alpha:g}" for alpha in DIRICHLET_SPLIT_ALPHAS],
+                title=None,
+                header=alt.Header(labelFontWeight=600),
+            ),
+            spacing=18,
+            title=alt.TitleParams(
+                "Theoretical two-way transfer distributions",
+                subtitle=(
+                    "The larger normalized Gamma share is assigned to LR; "
+                    "the smaller one to RN+."
+                ),
+            ),
+        )
+        .resolve_scale(y="independent")
+    )
+    return _style(chart, dark=dark)
+
+
+def tilt_effect_chart(*, dark: bool = False) -> alt.Chart:
+    """Allocation of mobilised non-expressed voters for two duel balances."""
+    scenarios = [
+        ("Close first round · A 55% / B 45%", 0.55),
+        ("Unequal first round · A 70% / B 30%", 0.70),
+    ]
+    rows = []
+    for scenario, first_round_a in scenarios:
+        first_round = np.array([first_round_a, 1 - first_round_a])
+        for tilt in TILT_EXAMPLE_VALUES:
+            shares = first_round**tilt
+            shares /= shares.sum()
+            start = 0.0
+            for candidate, share in zip(("Candidate A", "Candidate B"), shares):
+                end = start + float(share)
+                rows.append(
+                    {
+                        "scenario": scenario,
+                        "tilt": tilt,
+                        "tilt_label": f"t = {tilt:g}",
+                        "band": "Mobilised flow",
+                        "candidate": candidate,
+                        "share": float(share),
+                        "start": start,
+                        "end": end,
+                        "middle": (start + end) / 2,
+                        "share_label": f"{share:.0%}",
+                    }
+                )
+                start = end
+
+    data = pd.DataFrame(rows)
+    candidates = ["Candidate A", "Candidate B"]
+    colours = ["#4f83cc", "#d17b35"]
+    shared = {
+        "y": alt.Y("band:N", axis=None),
+        "color": alt.Color(
+            "candidate:N",
+            sort=candidates,
+            scale=alt.Scale(domain=candidates, range=colours),
+            legend=alt.Legend(orient="top", direction="horizontal"),
+        ),
+        "tooltip": [
+            alt.Tooltip("scenario:N", title="First round"),
+            alt.Tooltip("tilt:Q", title="Tilt"),
+            alt.Tooltip("candidate:N", title="Destination"),
+            alt.Tooltip("share:Q", title="Mobilised flow", format=".1%"),
+        ],
+    }
+    bars = alt.Chart(data).mark_bar(size=24).encode(
+        x=alt.X(
+            "start:Q",
+            title="Share of mobilised flow",
+            scale=alt.Scale(domain=[0, 1], nice=False),
+            axis=alt.Axis(values=[0, 0.5, 1], format=".0%"),
+        ),
+        x2="end:Q",
+        **shared,
+    )
+    labels = alt.Chart(data).mark_text(
+        color="white",
+        font="Arial",
+        fontSize=11,
+        fontWeight=600,
+    ).encode(
+        x=alt.X("middle:Q", scale=alt.Scale(domain=[0, 1], nice=False)),
+        y=alt.Y("band:N", axis=None),
+        text="share_label:N",
+        detail="candidate:N",
+    )
+    chart = (bars + labels).properties(width=176, height=34).facet(
+        row=alt.Row(
+            "scenario:N",
+            sort=[scenario for scenario, _ in scenarios],
+            title=None,
+            header=alt.Header(labelAngle=0, labelAlign="left", labelFontWeight=600),
+        ),
+        column=alt.Column(
+            "tilt_label:N",
+            sort=[f"t = {tilt:g}" for tilt in TILT_EXAMPLE_VALUES],
+            title=None,
+            header=alt.Header(labelFontWeight=600),
+        ),
+        spacing=16,
+        title=alt.TitleParams(
+            "How tilt allocates mobilised voters in a duel",
+            subtitle="Rows: first-round balance · columns: national tilt",
+        ),
     )
     return _style(chart, dark=dark)
 
@@ -1290,7 +1423,9 @@ def write_classic_charts(output_dir: Path = OUTPUT_DIR) -> None:
         "kernel-sensitivity": kernel_sensitivity_chart,
         "seats-by-non-expressed": seats_non_expressed_chart,
         "alpha-sensitivity": alpha_sensitivity_chart,
+        "demobilisation-sensitivity": demobilisation_sensitivity_chart,
         "seat-results": seat_results_chart,
+        "conditioned-seat-results": conditioned_seat_results_chart,
         "joint-predictive-region": joint_region_chart,
         "dominant-party": dominant_party_chart,
         "joint-seats": joint_seats_chart,
@@ -1298,9 +1433,13 @@ def write_classic_charts(output_dir: Path = OUTPUT_DIR) -> None:
         "district-0101-national-delta": district_0101_national_delta_chart,
         "district-expressed-error": district_expressed_error_chart,
         "dirichlet-simplex": simplex_chart,
+        "tilt-effect": tilt_effect_chart,
     }
     for name, build_chart in charts.items():
         for suffix, dark in [("", False), ("-dark", True)]:
             path = output_dir / f"{name}{suffix}.svg"
             build_chart(dark=dark).save(path)
             print(f"wrote {path.relative_to(PROJECT_ROOT)} (Altair)")
+
+if __name__ == "__main__":
+    write_classic_charts()

@@ -33,6 +33,47 @@ def linear_extension(
     return extension
 
 
+def extension_ranks(
+    tiers: Sequence[Sequence[Destination]],
+    scores: Mapping[Destination, np.ndarray],
+) -> tuple[list[Destination], np.ndarray]:
+    """Ordre total PAR CIRCONSCRIPTION, départagé par des scores latents.
+
+    Version locale de `linear_extension`. Trier des variables continues
+    échangeables tire une permutation uniforme : à circonscription fixée, si les
+    scores d'un même palier sont i.i.d., la loi de l'ordre obtenu est exactement
+    celle de `rng.permutation`. Corréler ces scores entre circonscriptions ne
+    change donc RIEN à la loi marginale de l'ordre — seulement sa dépendance,
+    exactement comme le copule gaussien le fait pour les cellules d'une ligne.
+
+    Renvoie la liste canonique des destinations ordonnées (paliers concaténés) et
+    un tableau `ranks` tel que `ranks[i, c]` est le rang, dans la circonscription
+    `c`, de la i-ème destination de cette liste. Le rang 0 est la destination la
+    plus préférée, qui reçoit la plus grande part.
+    """
+    ordered = [target for tier in tiers for target in tier]
+    n = len(next(iter(scores.values())))
+    ranks = np.empty((len(ordered), n), dtype=np.intp)
+
+    start = 0
+    for tier in tiers:
+        size = len(tier)
+        if size == 1:
+            # Aucun ex aequo à départager : le rang ne dépend pas du tirage.
+            ranks[start] = start
+        else:
+            z = np.array([scores[target] for target in tier])
+            # Le plus grand score prend le créneau le plus préféré du palier.
+            order = np.argsort(-z, axis=0)
+            slots = np.broadcast_to(
+                np.arange(start, start + size, dtype=np.intp)[:, None], (size, n)
+            )
+            np.put_along_axis(ranks[start : start + size], order, slots, axis=0)
+        start += size
+
+    return ordered, ranks
+
+
 def draw_alpha(
     bounds: tuple[float, float],
     rng: np.random.Generator,
@@ -72,5 +113,33 @@ def gammas_to_row(
     # i-ème plus grande part -> i-ème destination par ordre de préférence
     ranked = -np.sort(-shares[:n_ordered], axis=0)
     row = {target: ranked[i] for i, target in enumerate(extension)}
+    row.update({target: shares[n_ordered + j] for j, target in enumerate(free_targets)})
+    return row
+
+
+def gammas_to_row_by_district(
+    gammas: Mapping[Destination, np.ndarray],
+    ordered_targets: Sequence[Destination],
+    ranks: np.ndarray,
+    free_targets: Sequence[Destination] = (),
+) -> dict[Destination, np.ndarray]:
+    """`gammas_to_row` quand l'ordre de préférence varie d'une circonscription à
+    l'autre (voir `extension_ranks`).
+
+    Le classement des parts est identique — c'est toujours la i-ème plus grande
+    part qui va à la i-ème destination préférée — mais « la i-ème préférée » n'est
+    plus la même partout : chaque circonscription lit `ranked` à son propre rang.
+    """
+    targets = list(ordered_targets) + list(free_targets)
+    values = np.array([gammas[target] for target in targets])
+    shares = values / values.sum(axis=0)
+
+    n_ordered = len(ordered_targets)
+    ranked = -np.sort(-shares[:n_ordered], axis=0)
+    districts = np.arange(shares.shape[1])
+    row = {
+        target: ranked[ranks[i], districts]
+        for i, target in enumerate(ordered_targets)
+    }
     row.update({target: shares[n_ordered + j] for j, target in enumerate(free_targets)})
     return row
