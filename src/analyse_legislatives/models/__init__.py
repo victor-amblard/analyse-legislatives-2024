@@ -23,7 +23,8 @@ from analyse_legislatives.config import (
     DEFAULT_EXPECTED_EXPRESSED_CHANGE_PTS,
     DEFAULT_NATIONAL_EXPRESSED_BAND_PTS,
     DEFAULT_FREE_TARGETS,
-    DEFAULT_BLOCK_CORRELATION_PRIOR,
+    DEFAULT_DEPARTMENT_CORRELATION_PRIOR,
+    DEFAULT_REGION_CORRELATION_PRIOR,
     DEFAULT_MIXING_PRIOR,
     DEFAULT_MODEL,
     DEFAULT_SEED,
@@ -99,7 +100,10 @@ def build(
     # défaut dans le code. Le garde-fou du modèle reste actif pour quiconque
     # l'instancie directement.
     if name == "kernel_anchored":
-        kwargs = {"block_correlation_prior": DEFAULT_BLOCK_CORRELATION_PRIOR} | kwargs
+        kwargs = {
+            "department_correlation_prior": DEFAULT_DEPARTMENT_CORRELATION_PRIOR,
+            "region_correlation_prior": DEFAULT_REGION_CORRELATION_PRIOR,
+        } | kwargs
     if name in ("national_anchored", "kernel_anchored"):
         kwargs = {
             "expected_expressed_change_pts": DEFAULT_EXPECTED_EXPRESSED_CHANGE_PTS,

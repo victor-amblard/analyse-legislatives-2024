@@ -58,7 +58,9 @@ def render(
 
 def _render_ordinal_core(dirichlet_alpha_bounds: tuple[float, float]) -> None:
     low, high = dirichlet_alpha_bounds
-    st.subheader("Ce sur quoi le modèle s'appuie : un ordre partiel de préférences, pas des taux")
+    st.subheader(
+        "Ce sur quoi le modèle s'appuie : un ordre partiel de préférences, pas des taux"
+    )
     st.markdown(
         "Aucun taux de report n'est fixé. Le modèle déclare seulement, pour chaque "
         "groupe d'origine, un **ordre de préférence** entre destinations, sous forme "
@@ -162,7 +164,7 @@ def _render_anchor(
         f"**{expected_change_pts:+.2f} point** de participation : le modèle "
         f"n'affirme rien sur le SENS du mouvement entre les deux tours, et se "
         f"contente de déclarer qu'il peut être ample. $\\delta_c$ est un écart "
-        f"local, corrélé entre circonscriptions d'un même département et de "
+        f"local, corrélé par paliers — département, puis région — et de "
         f"moyenne pondérée nulle."
     )
     st.info(
@@ -198,9 +200,7 @@ def _render_prior_predictive(
         "fait, leur médiane marginale non. Voir `scripts/analyses/prior_predictive.py` pour "
         "les intervalles complets."
     )
-    st.markdown(
-        f"**Simulations** : $N = {n_simus}$ tirages"
-    )
+    st.markdown(f"**Simulations** : $N = {n_simus}$ tirages")
     st.plotly_chart(
         render_duel_sankey(prior_matrix), width="stretch", key="duel_sankey"
     )

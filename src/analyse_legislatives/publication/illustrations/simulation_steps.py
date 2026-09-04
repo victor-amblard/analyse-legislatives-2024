@@ -28,6 +28,14 @@ def _pairs(rows: Iterable[Mapping[str, Any]]) -> list[tuple[str, int | float]]:
     return [(row["party"], row["value"]) for row in rows]
 
 
+def _number(value: int | float) -> str:
+    return f"{value:,.0f}".replace(",", "\u202f")
+
+
+def _percent(value: int | float) -> str:
+    return f"{value:.0%}".replace("%", " %")
+
+
 def build_simulation_animation_svg() -> str:
     example = _load_example()
     first_round = example["first_round"]
@@ -69,25 +77,25 @@ def build_simulation_animation_svg() -> str:
     )
     parts = [
         f"""<style>
-    .surface{{fill:#fbfbfc}}.ink{{fill:#16181d}}.muted{{fill:#5a616e}}
+    .surface{{fill:#fbfbfc}}.ink{{fill:#16181d}}.muted{{fill:#5a616e}}.accent{{fill:#1f6f6b}}
     .hair{{stroke:#d9dce2}}.faint{{stroke:#e8eaee}}
     @media(prefers-color-scheme:dark){{.surface{{fill:#14161a}}.ink{{fill:#e9eaee}}
-    .muted{{fill:#9aa2b1}}.hair{{stroke:#3a4049}}.faint{{stroke:#23262c}}}}
+    .muted{{fill:#9aa2b1}}.accent{{fill:#5cb8b1}}.hair{{stroke:#3a4049}}.faint{{stroke:#23262c}}}}
     text{{font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif}}
     {''.join(keyframes)}{animation}
     @media(prefers-reduced-motion:reduce){{.on0,.on1,.on2,.on3,.on4{{animation:none;opacity:1}}}}
     </style>""",
         f'<rect class="surface" width="{width}" height="{height}"/>',
-        f'<text class="ink" x="{left}" y="32" font-size="15" font-weight="600">Circonscription {escape(example["district"]["id"])} — {escape(example["district"]["name"])}</text>',
-        f'<text class="muted" x="{left}" y="54" font-size="11.5">{r1[0][0]} finished the first round ahead, {r1[0][1]:,} to {r1[1][1]:,}. Main reservoirs: {main_reservoirs[0][1]:,} {main_reservoirs[0][0]}, {main_reservoirs[1][1]:,} {main_reservoirs[1][0]}, {main_reservoirs[2][1]:,} {main_reservoirs[2][0]}.</text>',
-        f'<text class="muted" x="{left}" y="72" font-size="11.5">Values are loaded from the election files and a reproducible {escape(example["model"])} draw.</text>',
+        f'<text class="ink" x="{left}" y="32" font-size="15" font-weight="600">Circonscription {escape(example["district"]["id"])} — {escape(example["district"]["name"].replace("1ère", "1re"))}</text>',
+        f'<text class="muted" x="{left}" y="54" font-size="11.5">{r1[0][0]} arrive en tête au premier tour, avec {_number(r1[0][1])} voix contre {_number(r1[1][1])}. Principaux réservoirs : {_number(main_reservoirs[0][1])} {main_reservoirs[0][0]}, {_number(main_reservoirs[1][1])} {main_reservoirs[1][0]}, {_number(main_reservoirs[2][1])} {main_reservoirs[2][0]}.</text>',
+        f'<text class="muted" x="{left}" y="72" font-size="11.5">Valeurs issues des fichiers électoraux et d’un tirage reproductible du modèle {escape(example["model"])}.</text>',
     ]
     steps = [
-        ("Draw a matrix", "one Θ for the whole country"),
-        ("Keep what is on the ballot", "five of eight columns go"),
-        ("Split each reservoir", "a multinomial draw"),
-        ("Count", "the seat goes to whoever leads"),
-        ("Do it again", "and again, and again"),
+        ("Tirer une matrice", "une seule Θ pour toute la France"),
+        ("Garder les finalistes", "cinq colonnes sur huit disparaissent"),
+        ("Répartir chaque réservoir", "un tirage multinomial"),
+        ("Compter", "le siège revient au candidat en tête"),
+        ("Recommencer", "encore et encore"),
     ]
 
     def position(index: int) -> tuple[int, int]:
@@ -103,7 +111,8 @@ def build_simulation_animation_svg() -> str:
             [
                 f'<g class="on{index}">',
                 f'<line class="hair" x1="{x}" y1="{y - 16}" x2="{x + column_width}" y2="{y - 16}"/>',
-                f'<text class="muted" x="{x}" y="{y}" font-size="10.5">{index + 1}</text>',
+                f'<text class="accent" x="{x}" y="{y}" font-size="10.5" '
+                f'font-weight="700">{index + 1}.</text>',
                 f'<text class="ink" x="{x + 16}" y="{y}" font-size="12" font-weight="600">{escape(title)}</text>',
                 f'<text class="muted" x="{x + 16}" y="{y + 15}" font-size="10">{escape(subtitle)}</text>',
             ]
@@ -128,13 +137,13 @@ def build_simulation_animation_svg() -> str:
                         f'<text class="ink" x="{chart_x + label_width + 10}" y="{chart_y + 104 + row * 14}" font-size="10">{value:.2f}</text>'
                     )
                 parts.append(
-                    f'<text class="muted" x="{chart_x + label_width + 46}" y="{chart_y + 104}" font-size="9">renormalised</text>'
+                    f'<text class="muted" x="{chart_x + label_width + 46}" y="{chart_y + 104}" font-size="9">renormalisé</text>'
                 )
         elif index == 2:
             source_pool = dict(reservoirs)[draw["source"]]
             max_transfer = max(value for _, value in multinomial)
             parts.append(
-                f'<text class="muted" x="{chart_x}" y="{chart_y}" font-size="9">the {draw["source"]} reservoir, {source_pool:,} voters</text>'
+                f'<text class="muted" x="{chart_x}" y="{chart_y}" font-size="9">réservoir {draw["source"]}, {_number(source_pool)} voix</text>'
             )
             for row, (name, value) in enumerate(multinomial):
                 row_y = chart_y + 16 + row * 24
@@ -142,10 +151,10 @@ def build_simulation_animation_svg() -> str:
                 parts.append(
                     f'<text class="muted" x="{chart_x}" y="{row_y + 12}" font-size="9.5">{name}</text>'
                     f'<rect x="{chart_x + label_width}" y="{row_y}" width="{max(2, width_value):.0f}" height="15" fill="{colour(name)}"/>'
-                    f'<text class="ink" x="{chart_x + label_width + 6 + width_value:.0f}" y="{row_y + 12}" font-size="10">{value:,}</text>'
+                    f'<text class="ink" x="{chart_x + label_width + 6 + width_value:.0f}" y="{row_y + 12}" font-size="10">{_number(value)}</text>'
                 )
             parts.append(
-                f'<text class="muted" x="{chart_x}" y="{chart_y + 104}" font-size="9.5">the other reservoirs split the same way</text>'
+                f'<text class="muted" x="{chart_x}" y="{chart_y + 104}" font-size="9.5">les autres réservoirs sont répartis de la même façon</text>'
             )
         elif index == 3:
             max_total = max(value for _, value in totals)
@@ -155,10 +164,10 @@ def build_simulation_animation_svg() -> str:
                 parts.append(
                     f'<rect x="{chart_x}" y="{row_y}" width="{width_value:.0f}" height="19" fill="{colour(name)}"/>'
                     f'<text class="ink" x="{chart_x}" y="{row_y - 4}" font-size="10" font-weight="600">{name}</text>'
-                    f'<text class="ink" x="{chart_x + width_value + 6:.0f}" y="{row_y + 14}" font-size="10.5">{value:,}</text>'
+                    f'<text class="ink" x="{chart_x + width_value + 6:.0f}" y="{row_y + 14}" font-size="10.5">{_number(value)}</text>'
                 )
             parts.append(
-                f'<text class="muted" x="{chart_x}" y="{chart_y + 100}" font-size="9.5">in this draw the seat goes to {draw["winner"]}</text>'
+                f'<text class="muted" x="{chart_x}" y="{chart_y + 100}" font-size="9.5">dans ce tirage, le siège revient à {draw["winner"]}</text>'
             )
         else:
             histogram = predictive["histogram_counts"]
@@ -171,19 +180,19 @@ def build_simulation_animation_svg() -> str:
             parts.append(
                 f'<line class="faint" x1="{chart_x}" y1="{chart_y + 58}" x2="{chart_x + 182}" y2="{chart_y + 58}"/>'
                 f'<line class="hair" x1="{chart_x + 24}" y1="{chart_y + 6}" x2="{chart_x + 24}" y2="{chart_y + 58}" stroke-width="1.5"/>'
-                f'<text class="ink" x="{chart_x + 20}" y="{chart_y - 2}" font-size="9" font-weight="700">what happened</text>'
-                f'<text class="ink" x="{chart_x}" y="{chart_y + 82}" font-size="10.5" font-weight="600">{predictive["focus_party"]} wins {predictive["win_probability"]:.0%} of {example["n_simulations"]:,} draws</text>'
-                f'<text class="muted" x="{chart_x}" y="{chart_y + 96}" font-size="9.5">{example["actual"]["winner"]} took it, {actual[0][1]:,} to {actual[1][1]:,}</text>'
+                f'<text class="ink" x="{chart_x + 20}" y="{chart_y - 2}" font-size="9" font-weight="700">résultat réel</text>'
+                f'<text class="ink" x="{chart_x}" y="{chart_y + 82}" font-size="10.5" font-weight="600">{predictive["focus_party"]} gagne {_percent(predictive["win_probability"])} des {_number(example["n_simulations"])} tirages</text>'
+                f'<text class="muted" x="{chart_x}" y="{chart_y + 96}" font-size="9.5">{example["actual"]["winner"]} l’a emporté, avec {_number(actual[0][1])} voix contre {_number(actual[1][1])}</text>'
             )
         parts.append("</g>")
 
     parts.append(
         f'<line class="faint" x1="{left}" y1="{height - 42}" x2="{width - left}" y2="{height - 42}"/>'
-        f'<text class="muted" x="{left}" y="{height - 22}" font-size="10.5">Steps 1 and 2 happen once per simulation; 3 and 4 run in all {example["national_district_count"]} districts. Repeated draws favour {predictive["focus_party"]}, but {example["actual"]["winner"]} won —</text>'
-        f'<text class="muted" x="{left}" y="{height - 8}" font-size="10.5">the same over-projection of the far right that the results section takes apart.</text>'
+        f'<text class="muted" x="{left}" y="{height - 22}" font-size="10.5">Les étapes 1 et 2 ont lieu une fois par simulation ; les étapes 3 et 4 dans les {example["national_district_count"]} circonscriptions. Les tirages favorisent {predictive["focus_party"]}, mais {example["actual"]["winner"]} a gagné :</text>'
+        f'<text class="muted" x="{left}" y="{height - 8}" font-size="10.5">c’est la même surestimation de l’extrême droite que celle analysée dans la section des résultats.</text>'
     )
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
-        f'role="img" aria-label="Five steps of one simulation in district {escape(example["district"]["id"])}.">'
+        f'role="img" aria-label="Cinq étapes d’une simulation dans la circonscription {escape(example["district"]["id"])}.">'
         f'{"".join(parts)}</svg>\n'
     )

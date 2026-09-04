@@ -23,10 +23,16 @@ def readable_ink(hex_colour: str) -> str:
 
 
 def theme_style() -> str:
+    """`.accent` reprend le teal de marque du site (`--accent` dans
+    `global.css`), pas une couleur choisie pour cette seule figure : une
+    illustration qui invente sa propre teinte à chaque fois finit par ressembler
+    à un patchwork de palettes plutôt qu'à des pages du même site."""
     return """<style>
     .surface{fill:#fbfbfc}.ink{fill:#16181d}.muted{fill:#5a616e}
     .rule{stroke:#dfe2e8}.grid{stroke:#e8eaee}.frame{fill:none;stroke:#c9cdd5}
+    .accent{fill:#1f6f6b}.accent-line{stroke:#1f6f6b}
     @media(prefers-color-scheme:dark){.surface{fill:#14161a}.ink{fill:#e9eaee}
-    .muted{fill:#9aa2b1}.rule{stroke:#3a3f49}.grid{stroke:#292d35}.frame{stroke:#555c69}}
+    .muted{fill:#9aa2b1}.rule{stroke:#3a3f49}.grid{stroke:#292d35}.frame{stroke:#555c69}
+    .accent{fill:#5cb8b1}.accent-line{stroke:#5cb8b1}}
     text{font-family:Inter,ui-sans-serif,system-ui,sans-serif}
     </style>"""

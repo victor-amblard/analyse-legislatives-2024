@@ -83,6 +83,7 @@ def main() -> None:
         help="recalcule la grille coûteuse (h, lambda) avant de générer les figures",
     )
     parser.add_argument("--alpha-sensitivity", action="store_true")
+    parser.add_argument("--demobilisation-sensitivity", action="store_true")
     parser.add_argument(
         "--models", nargs="+", choices=PUBLICATION_MODELS, default=PUBLICATION_MODELS
     )
@@ -137,10 +138,13 @@ def main() -> None:
 
     steps = [f"évaluation {model}" for model in args.models]
     if args.figures:
+        steps.append("intervalles conditionnés aux suffrages exprimés")
         if args.alpha_sensitivity:
             steps.append("sensibilité à alpha")
+        if args.demobilisation_sensitivity:
+            steps.append("sensibilité à la démobilisation")
         if args.kernel_sensitivity:
-            steps.append("sensibilité au noyau (h, lambda)")
+            steps.append("sensibilité au noyau (rho, lambda)")
         steps.append("exemple de simulation 0101")
         steps.append("figures")
     done = 0
@@ -172,6 +176,16 @@ def main() -> None:
         print(f"wrote {display_path(path)}", flush=True)
 
     if args.figures:
+        done += 1
+        announce(done, len(steps), "intervalles conditionnés aux suffrages exprimés")
+        stream(
+            [
+                sys.executable,
+                "scripts/analyses/conditioned_seat_intervals.py",
+                "--models",
+                *args.models,
+            ]
+        )
         if args.alpha_sensitivity:
             done += 1
             announce(done, len(steps), "sensibilité à alpha")
@@ -183,9 +197,20 @@ def main() -> None:
                     str(args.prior_simus),
                 ]
             )
+        if args.demobilisation_sensitivity:
+            done += 1
+            announce(done, len(steps), "sensibilité à la démobilisation")
+            stream(
+                [
+                    sys.executable,
+                    "scripts/analyses/demobilisation_sensitivity.py",
+                    "--n-simus",
+                    str(args.prior_simus),
+                ]
+            )
         if args.kernel_sensitivity:
             done += 1
-            announce(done, len(steps), "sensibilité au noyau (h, lambda)")
+            announce(done, len(steps), "sensibilité au noyau (rho, lambda)")
             stream(
                 [
                     sys.executable,
@@ -224,6 +249,7 @@ def main() -> None:
         ),
         "kernel_sensitivity_recomputed": args.kernel_sensitivity,
         "prior_simulations_per_alpha": args.prior_simus if args.figures else None,
+        "demobilisation_sensitivity_recomputed": args.demobilisation_sensitivity,
         "kernel_sensitivity_simulations_per_cell": (
             args.kernel_sensitivity_simus if args.kernel_sensitivity else None
         ),

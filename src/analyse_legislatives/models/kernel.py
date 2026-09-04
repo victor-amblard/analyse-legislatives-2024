@@ -7,16 +7,48 @@ import numpy as np
 from scipy.stats import norm as _norm_dist
 
 from analyse_legislatives.circonscription import CirconscriptionResult
-from analyse_legislatives.config import DEFAULT_BLOCK_CORRELATION_PRIOR
+from analyse_legislatives.config import (
+    DEFAULT_DEPARTMENT_CORRELATION_PRIOR,
+    DEFAULT_REGION_CORRELATION_PRIOR,
+)
 from analyse_legislatives.models.base import SimulationParameters
 from analyse_legislatives.models.copula import CopulaModel
 from analyse_legislatives.models.ordinal import extension_ranks
 from analyse_legislatives.utils.validation import check_beta_pair
-from analyse_legislatives.parties import FAMILIES, Destination
+from analyse_legislatives.parties import Destination
 
-KERNEL_JITTER = 1e-6
-"""Ajout diagonal garantissant que le noyau reste défini positif malgré les
-erreurs d'arrondi, pour que la décomposition de Cholesky aboutisse."""
+DEPARTMENTS_BY_REGION = {
+    "Auvergne-Rhône-Alpes": "01,03,07,15,26,38,42,43,63,69,73,74",
+    "Bourgogne-Franche-Comté": "21,25,39,58,70,71,89,90",
+    "Bretagne": "22,29,35,56",
+    "Centre-Val de Loire": "18,28,36,37,41,45",
+    "Corse": "2A,2B",
+    "Grand Est": "08,10,51,52,54,55,57,67,68,88",
+    "Hauts-de-France": "02,59,60,62,80",
+    "Île-de-France": "75,77,78,91,92,93,94,95",
+    "Normandie": "14,27,50,61,76",
+    "Nouvelle-Aquitaine": "16,17,19,23,24,33,40,47,64,79,86,87",
+    "Occitanie": "09,11,12,30,31,32,34,46,48,65,66,81,82",
+    "Pays de la Loire": "44,49,53,72,85",
+    "Provence-Alpes-Côte d'Azur": "04,05,06,13,83,84",
+}
+
+DEPARTMENT_TO_REGION = {
+    dept: region
+    for region, depts in DEPARTMENTS_BY_REGION.items()
+    for dept in depts.split(",")
+}
+
+
+def department_group(district_id: str) -> str:
+    """Return the geographic group used for the department-level effect.
+
+    The final two characters normally identify a constituency inside a
+    department. ``ZZ`` instead groups all French citizens abroad, whose eleven
+    constituencies cover unrelated areas. They therefore get separate local
+    groups and share only the national factor.
+    """
+    return district_id if district_id.startswith("ZZ") else district_id[:-2]
 
 
 @dataclass
@@ -31,90 +63,113 @@ class KernelModel(CopulaModel):
     circonscription s'écartera de la moyenne, mais deux circonscriptions SEMBLABLES
     s'en écarteront dans le même sens. Relâche l'hypothèse 5 de `NationalModel`.
 
-    Reste à dire ce que « semblable » veut dire — c'est `kernel_similarity` :
+    Le noyau est emboîté à deux échelles. Deux circonscriptions du même
+    département ont leurs écarts locaux corrélés à `rho_departement` ; deux
+    circonscriptions d'une même région mais de départements différents le sont à
+    `rho_region` (`<= rho_departement`) ; les autres ne partagent que la
+    composante nationale. Ces appartenances administratives sont connues à
+    l'avance et n'utilisent aucun résultat électoral.
 
-    - `"departement"` (défaut) : deux circonscriptions du même département ont des
-      écarts locaux corrélés à `rho`, les autres ne partagent que la composante
-      nationale. La similarité est administrative, connue d'avance, et n'utilise
-      AUCUN résultat électoral. `rho` est tiré à chaque simulation dans un prior
-      Beta calibré sur le PREMIER tour (voir `block_correlation_prior`).
-    - `"hellinger"` : noyau gaussien sur la distance de Hellinger entre
-      compositions du 1er tour, la version historique du modèle.
-
-    Le choix n'est pas neutre et n'est pas vérifiable ex ante. A posteriori, le
-    variogramme des résidus (`scripts/analyses/residual_variogram.py`) ne retrouve
-    pas dans les données la dépendance que la similarité de Hellinger postule sur
-    les scores (0,00-0,05 observé contre 0,28-0,42 prédit), alors qu'il met en
-    évidence un net regroupement départemental sur la participation (+0,42).
+    L'emboîtement lui-même répond à un constat du même ordre : restreint au seul
+    département, le noyau ne touche qu'environ 1 % des paires de circonscriptions
+    de France — trop peu pour peser sur l'incertitude nationale, quasiment comme
+    l'indépendance pure. Le variogramme du premier tour montre que la corrélation
+    ne s'arrête pas à la frontière du département : elle décroît par PALIERS avec
+    l'échelle géographique (+0,47 même département, +0,28 même région sans le
+    même département, -0,09 régions différentes, sur les paires politiquement
+    éloignées). Le niveau régional n'est pas une hypothèse gratuite : il est
+    demandé par les mêmes données qui ont justifié le département.
     """
 
-    kernel_bandwidth: float | None = None
     mixing_weight: float | None = None
-    kernel_similarity: str = "departement"
 
-    block_correlation_prior: tuple[float, float] = DEFAULT_BLOCK_CORRELATION_PRIOR
-    """Prior de `rho`, la corrélation intra-département des écarts locaux.
+    department_correlation_prior: tuple[float, float] = (
+        DEFAULT_DEPARTMENT_CORRELATION_PRIOR
+    )
+    region_correlation_prior: tuple[float, float] = DEFAULT_REGION_CORRELATION_PRIOR
+    department_correlation: float | None = None
+    region_correlation: float | None = None
 
-    Un noyau bloc binaire (`rho = 1`) affirmerait que deux circonscriptions du
-    même département dévient à l'identique : le variogramme du premier tour en
-    mesure plutôt 0,47 (métropole, paires politiquement éloignées) à 0,77 (France
-    entière). Le prior par défaut couvre cette plage sans la figer."""
-
-    block_correlation: float | None = None
-    """Valeur imposée de `rho`, pour les analyses de sensibilité. `None` = tirée."""
-
-    _cholesky_cache: np.ndarray | None = field(default=None, init=False, repr=False)
-    _cached_district_ids: tuple | None = field(default=None, init=False, repr=False)
-    _resolved_kernel_bandwidth: float | None = field(
+    _drawn_department_correlation: float | None = field(
         default=None, init=False, repr=False
     )
-    _drawn_block_correlation: float | None = field(
+    _drawn_region_correlation: float | None = field(
         default=None, init=False, repr=False
     )
     _departement_index_cache: np.ndarray | None = field(
         default=None, init=False, repr=False
     )
     _cached_departement_ids: tuple | None = field(default=None, init=False, repr=False)
-
-    SIMILARITIES = ("departement", "hellinger")
+    _region_index_cache: np.ndarray | None = field(default=None, init=False, repr=False)
+    _cached_region_ids: tuple | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.mixing_weight is not None and not 0 <= self.mixing_weight <= 1:
             raise ValueError("`mixing_weight` doit appartenir à [0, 1].")
-        if self.kernel_similarity not in self.SIMILARITIES:
-            raise ValueError(
-                f"`kernel_similarity` inconnue : {self.kernel_similarity!r}. "
-                f"Choix possibles : {', '.join(self.SIMILARITIES)}."
-            )
-        check_beta_pair(self.block_correlation_prior, "block_correlation_prior")
-        if self.block_correlation is not None and not 0 <= self.block_correlation <= 1:
-            raise ValueError("`block_correlation` doit appartenir à [0, 1].")
+        check_beta_pair(
+            self.department_correlation_prior, "department_correlation_prior"
+        )
+        check_beta_pair(self.region_correlation_prior, "region_correlation_prior")
+        if (
+            self.department_correlation is not None
+            and not 0 <= self.department_correlation <= 1
+        ):
+            raise ValueError("`department_correlation` doit appartenir à [0, 1].")
+        if (
+            self.region_correlation is not None
+            and not 0 <= self.region_correlation <= 1
+        ):
+            raise ValueError("`region_correlation` doit appartenir à [0, 1].")
 
     def _begin_simulation(
         self,
         districts: Sequence[CirconscriptionResult],
         draw: SimulationParameters,
     ) -> None:
-        """Tire `rho` une fois par simulation, partagé par toutes les lignes."""
+        """Tire les deux `rho` une fois par simulation, partagés par toutes les
+        lignes. Le département d'abord : la région en a besoin pour son
+        plafonnement."""
         super()._begin_simulation(districts, draw)
-        self._drawn_block_correlation = None
-        self.block_correlation_for()
+        self._drawn_department_correlation = None
+        self._drawn_region_correlation = None
+        self.region_correlation_for(self.department_correlation_for())
 
-    def block_correlation_for(self) -> float:
-        """`rho` de la simulation en cours : imposé, déjà tiré, ou tiré ici.
+    def department_correlation_for(self) -> float:
+        """`rho_departement` de la simulation en cours : imposé, déjà tiré, ou
+        tiré ici.
 
         Le repli sur un tirage à la volée sert aux appels isolés — tests et
         diagnostics appellent les champs latents sans passer par une simulation
         complète.
         """
-        if self.block_correlation is not None:
-            return float(self.block_correlation)
-        if self._drawn_block_correlation is None:
-            self._drawn_block_correlation = float(
-                self.rng.beta(*self.block_correlation_prior)
+        if self.department_correlation is not None:
+            return float(self.department_correlation)
+        if self._drawn_department_correlation is None:
+            self._drawn_department_correlation = float(
+                self.rng.beta(*self.department_correlation_prior)
             )
-        return self._drawn_block_correlation
+        return self._drawn_department_correlation
+
+    def region_correlation_for(self, department_correlation: float) -> float:
+        """`rho_region` de la simulation en cours, plafonné par `rho_departement`.
+
+        Les deux niveaux sont tirés dans des priors INDÉPENDANTS, calibrés
+        séparément sur les deux paliers mesurés par le variogramme du premier
+        tour, puis on impose `rho_region = min(tirage, rho_departement)` : une
+        région ne peut pas être plus corrélée que le département qui la compose.
+        Le plafond ne mord que rarement, puisque les deux priors sont déjà centrés
+        dans le bon ordre — c'est un garde-fou, pas le moteur de la contrainte.
+        """
+        if self.region_correlation is not None:
+            raw = float(self.region_correlation)
+        else:
+            if self._drawn_region_correlation is None:
+                self._drawn_region_correlation = float(
+                    self.rng.beta(*self.region_correlation_prior)
+                )
+            raw = self._drawn_region_correlation
+        return min(raw, department_correlation)
 
     def _departement_index(
         self, districts: Sequence[CirconscriptionResult]
@@ -135,162 +190,70 @@ class KernelModel(CopulaModel):
     def _departement(district: CirconscriptionResult) -> str:
         """Code du département, déduit de l'identifiant de la circonscription.
 
-        Les deux derniers caractères numérotent la circonscription DANS le
-        département : `'0101'` -> `'01'`, `'2A01'` -> `'2A'`, `'98802'` -> `'988'`
-        pour les circonscriptions des Français de l'étranger.
+        Les deux derniers caractères numérotent généralement la circonscription
+        DANS le département : `'0101'` -> `'01'`, `'2A01'` -> `'2A'`,
+        `'98802'` -> `'988'`. Les identifiants `ZZ01` à `ZZ11` restent distincts,
+        car `ZZ` n'est pas un département.
         """
-        return district.circonscription.id[:-2]
+        return department_group(district.circonscription.id)
 
-    def _departement_matrix(
+    def _region_index(self, districts: Sequence[CirconscriptionResult]) -> np.ndarray:
+        """Index entier de la région de chaque circonscription, mis en cache.
+
+        Pour un territoire ultramarin non couvert, région et département
+        coïncident : aucun supplément régional ne s'applique. Les Français de
+        l'étranger sont déjà séparés par `department_group` et restent donc
+        indépendants au niveau local.
+        """
+        district_ids = tuple(d.circonscription.id for d in districts)
+        if self._cached_region_ids == district_ids:
+            cached = self._region_index_cache
+            if cached is not None:
+                return cached
+        codes = [self._departement(d) for d in districts]
+        labels = [DEPARTMENT_TO_REGION.get(code, f"__solo__:{code}") for code in codes]
+        _, index = np.unique(labels, return_inverse=True)
+        self._cached_region_ids = district_ids
+        self._region_index_cache = index
+        return index
+
+    def _nested_block_matrix(
         self, districts: Sequence[CirconscriptionResult]
     ) -> np.ndarray:
-        """Noyau bloc atténué : `rho` dans le département, 0 en dehors, 1 sur la
+        """Noyau bloc emboîté : `rho_departement` dans le département,
+        `rho_region` dans la région sans le même département, 0 au-delà, 1 sur la
         diagonale.
 
-        `K = rho B + (1 - rho) I` reste semi-défini positif pour tout `rho` de
-        [0, 1], `B` étant la matrice d'appartenance au département. Hors du
-        département, la corrélation latente totale n'est pas nulle pour autant :
-        elle vaut `lambda`, la part nationale.
+        `K = rho_region * R + (rho_departement - rho_region) * D + (1 -
+        rho_departement) * I`, où `R` et `D` sont les matrices d'appartenance à la
+        même région et au même département. Reste semi-défini positif pour tout
+        `0 <= rho_region <= rho_departement <= 1` : c'est exactement la structure
+        de covariance d'un modèle à effets emboîtés (région, puis département dans
+        la région, puis résidu propre à la circonscription) — un cas classique,
+        garanti défini positif par construction. Hors de la région, la
+        corrélation latente totale n'est pas nulle pour autant : elle vaut
+        `lambda`, la part nationale.
         """
-        index = self._departement_index(districts)
-        block = (index[:, None] == index[None, :]).astype(float)
-        rho = self.block_correlation_for()
-        return rho * block + (1 - rho) * np.eye(len(codes))
+        dept_index = self._departement_index(districts)
+        region_index = self._region_index(districts)
+        same_dept = (dept_index[:, None] == dept_index[None, :]).astype(float)
+        same_region = (region_index[:, None] == region_index[None, :]).astype(float)
 
-    @staticmethod
-    def _district_embedding(district: CirconscriptionResult) -> np.ndarray:
-        """Vecteur des parts de voix du 1er tour (7 familles + abstention), qui sert
-        de position de la circonscription dans « l'espace politique » pour le noyau
-        de corrélation. Aucun apprentissage : ce sont les scores bruts."""
-        competing_total = sum(
-            district.competing_parties_results.get(p, 0) for p in FAMILIES
+        rho_dept = self.department_correlation_for()
+        rho_region = self.region_correlation_for(rho_dept)
+
+        n = len(districts)
+        return (
+            rho_region * same_region
+            + (rho_dept - rho_region) * same_dept
+            + (1 - rho_dept) * np.eye(n)
         )
-        eliminated_total = sum(
-            district.eliminated_parties_results.get(p, 0) for p in FAMILIES
-        )
-        total = competing_total + eliminated_total + district.non_expressed
-
-        shares = [
-            (
-                district.competing_parties_results.get(p, 0)
-                + district.eliminated_parties_results.get(p, 0)
-            )
-            / total
-            for p in FAMILIES
-        ]
-        shares.append(district.non_expressed / total)
-        return np.array(shares)
-
-    @staticmethod
-    def _median_bandwidth(sq_dists: np.ndarray) -> float:
-        """
-        Heuristique de la médiane : bande passante = distance de Hellinger médiane
-        entre paires distinctes de circonscriptions.
-
-        Elle n'est pas définie s'il n'existe aucune paire (une seule
-        circonscription), ni si toutes les circonscriptions sont identiques
-        (médiane nulle, donc division par zéro dans le noyau). Dans ces deux cas le
-        noyau vaut 1 partout quelle que soit la bande passante — toutes les
-        circonscriptions sont parfaitement corrélées — donc n'importe quelle valeur
-        strictement positive convient et 1.0 fait l'affaire. Sans ce garde-fou,
-        `np.median` d'un tableau vide renvoie NaN et la décomposition de Cholesky
-        échoue sur « Matrix is not positive definite ».
-        """
-        pairs = sq_dists[np.triu_indices_from(sq_dists, k=1)]
-        if pairs.size == 0:
-            return 1.0
-        bandwidth = float(np.median(np.sqrt(pairs)))
-        return bandwidth if bandwidth > 0 else 1.0
-
-    def _squared_distances(
-        self, districts: Sequence[CirconscriptionResult]
-    ) -> np.ndarray:
-        """Distances de Hellinger au carré entre compositions du premier tour.
-
-        Pour deux vecteurs de parts ``p`` et ``q`` :
-
-            H²(p, q) = 1/2 * sum((sqrt(p_i) - sqrt(q_i))²)
-        """
-        embeddings = np.array([self._district_embedding(d) for d in districts])
-        sqrt_parts = np.sqrt(embeddings)
-        diffs = sqrt_parts[:, None, :] - sqrt_parts[None, :, :]
-        return 0.5 * (diffs**2).sum(axis=-1)
 
     def kernel_matrix_for(
-        self,
-        districts: Sequence[CirconscriptionResult],
-        bandwidth: float | None = None,
+        self, districts: Sequence[CirconscriptionResult]
     ) -> np.ndarray:
-        """
-        Noyau gaussien BRUT (sans le jitter numérique ajouté avant la décomposition
-        de Cholesky dans `_get_cholesky`), à la bande passante donnée ou, à défaut,
-        celle résolue par heuristique de la médiane.
-
-        Exposé pour l'analyse spectrale hors simulation (`scripts/analyses/kernel_spectrum.py`)
-        : le jitter n'a de sens que pour stabiliser une décomposition de Cholesky, pas
-        pour une décomposition en valeurs propres.
-
-        `bandwidth` ne concerne que la similarité de Hellinger : le noyau
-        départemental n'a pas de portée à régler, et l'argument y est ignoré.
-        """
-        if self.kernel_similarity == "departement":
-            return self._departement_matrix(districts)
-        sq_dists = self._squared_distances(districts)
-        h = bandwidth if bandwidth is not None else self._median_bandwidth(sq_dists)
-        return np.exp(-sq_dists / (2 * h**2))
-
-    def _get_cholesky(self, districts: Sequence[CirconscriptionResult]) -> np.ndarray:
-        """Décomposition de Cholesky du noyau gaussien de corrélation entre
-        circonscriptions. Mise en cache : ne dépend que des résultats du 1er tour
-        (fixes), donc calculée une seule fois et réutilisée à chaque simulation."""
-        self._require_hellinger("_get_cholesky")
-        district_ids = tuple(d.circonscription.id for d in districts)
-        cached = self._cholesky_cache
-        if self._cached_district_ids == district_ids and cached is not None:
-            return cached
-
-        sq_dists = self._squared_distances(districts)
-        bandwidth = (
-            self.kernel_bandwidth
-            if self.kernel_bandwidth is not None
-            else self._median_bandwidth(sq_dists)
-        )
-        self._resolved_kernel_bandwidth = bandwidth
-
-        kernel = self.kernel_matrix_for(districts, bandwidth=bandwidth)
-        kernel += KERNEL_JITTER * np.eye(len(districts))
-        cholesky = np.linalg.cholesky(kernel)
-
-        self._cached_district_ids = district_ids
-        self._cholesky_cache = cholesky
-        return cholesky
-
-    def _require_hellinger(self, what: str) -> None:
-        """Refuse les objets propres au noyau de Hellinger sous un autre noyau.
-
-        La bande passante et la décomposition de Cholesky n'ont de sens que pour
-        une similarité continue. Sous le noyau départemental, la matrice dépend de
-        `rho`, tiré à chaque simulation : un Cholesky mis en cache sur les seules
-        circonscriptions serait périmé dès le tirage suivant. Mieux vaut une erreur
-        explicite qu'un objet silencieusement faux.
-        """
-        if self.kernel_similarity != "hellinger":
-            raise ValueError(
-                f"{what} n'a de sens qu'avec `kernel_similarity='hellinger'` ; "
-                f"ce modèle utilise {self.kernel_similarity!r}."
-            )
-
-    def kernel_bandwidth_for(self, districts: Sequence[CirconscriptionResult]) -> float:
-        """Bande passante effectivement utilisée — soit `kernel_bandwidth` si
-        fournie explicitement, soit la valeur résolue par heuristique de la médiane
-        sinon (voir `_get_cholesky`). Réservée à la similarité de Hellinger."""
-        self._get_cholesky(districts)
-        bandwidth = self._resolved_kernel_bandwidth
-        # `_get_cholesky` vient de la poser ; le contrôle satisfait le typage et
-        # attraperait une future réécriture qui oublierait de le faire.
-        if bandwidth is None:
-            raise RuntimeError("bande passante non résolue")
-        return bandwidth
+        """Matrice de covariance locale du noyau région/département."""
+        return self._nested_block_matrix(districts)
 
     def _national_weight_for(self, draw: SimulationParameters) -> float:
         """Lambda effectif : celui du tirage, ou l'override fixe des analyses de
@@ -388,24 +351,33 @@ class KernelModel(CopulaModel):
         """Champ local `z_loc ~ N(0, K)`, une valeur par circonscription.
 
         Pour la similarité de Hellinger, il faut passer par Cholesky : `K` n'a pas
-        de structure exploitable. Pour le noyau départemental, `K` vaut `rho` dans
-        le bloc et 0 dehors, ce qui s'échantillonne exactement — et bien plus vite —
-        par un effet départemental partagé :
+        de structure exploitable. Pour le noyau départemental, `K` est EMBOÎTÉ
+        (région, puis département dans la région, puis résidu propre), ce qui
+        s'échantillonne exactement — et bien plus vite qu'une décomposition —
+        par deux effets partagés, régional puis départemental :
 
-            z_c = sqrt(rho) g_dept(c) + sqrt(1 - rho) eps_c
+            z_c = sqrt(rho_region) g_region(c)
+                + sqrt(rho_departement - rho_region) g_dept(c)
+                + sqrt(1 - rho_departement) eps_c
 
-        avec `g` et `eps` standard normales indépendantes. La variance vaut 1, la
-        covariance intra-département `rho`, et 0 entre départements : c'est
-        exactement `K(rho)`, sans décomposition.
+        avec `g_region`, `g_dept` et `eps` standard normales indépendantes. La
+        variance vaut 1, la covariance intra-département `rho_departement`, la
+        covariance intra-région (départements différents) `rho_region`, et 0
+        au-delà de la région : c'est exactement `K(rho_departement, rho_region)`,
+        sans décomposition.
         """
-        n = len(districts)
-        if self.kernel_similarity == "hellinger":
-            return self._get_cholesky(districts) @ self.rng.standard_normal(n)
-
-        rho = self.block_correlation_for()
-        index = self._departement_index(districts)
-        shared = self.rng.standard_normal(index.max() + 1)
-        return np.sqrt(rho) * shared[index] + np.sqrt(1 - rho) * self.rng.standard_normal(n)
+        rho_dept = self.department_correlation_for()
+        rho_region = self.region_correlation_for(rho_dept)
+        dept_index = self._departement_index(districts)
+        region_index = self._region_index(districts)
+        g_region = self.rng.standard_normal(region_index.max() + 1)
+        g_dept = self.rng.standard_normal(dept_index.max() + 1)
+        eps = self.rng.standard_normal(len(districts))
+        return (
+            np.sqrt(rho_region) * g_region[region_index]
+            + np.sqrt(rho_dept - rho_region) * g_dept[dept_index]
+            + np.sqrt(1 - rho_dept) * eps
+        )
 
     def _mixed_latent_field(
         self, districts: Sequence[CirconscriptionResult], national_weight: float
@@ -419,10 +391,9 @@ class KernelModel(CopulaModel):
         champ garde donc sa loi marginale et ne gagne QUE de la dépendance.
         """
         national = self.rng.standard_normal()
-        return (
-            np.sqrt(national_weight) * national
-            + np.sqrt(1 - national_weight) * self._local_latent_field(districts)
-        )
+        return np.sqrt(national_weight) * national + np.sqrt(
+            1 - national_weight
+        ) * self._local_latent_field(districts)
 
     def tilts_for_districts(
         self,

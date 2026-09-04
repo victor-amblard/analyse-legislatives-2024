@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-09-02T20:22:11.828535+00:00",
+  "generated_at_utc": "2026-09-03T21:46:58.555190+00:00",
   "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 17.0.0 (clang-1700.6.4.2)]",
   "seed": 20240707,
   "n_simulations": 3000,
@@ -15,7 +15,7 @@
   "prior_simulations_per_alpha": 3000,
   "demobilisation_sensitivity_recomputed": true,
   "kernel_sensitivity_simulations_per_cell": 300,
-  "config_sha256": "5f8307479b11cbdc417b4ee8355272638372babb3adedd26d83f3781c05b99ae",
+  "config_sha256": "df6303b9f3c4b62d29e62eebb95fe91b4b4a1334009c312ebdbdf0f9010c5182",
   "config": {
     "seed": 20240707,
     "n_simulations": 2000,
@@ -34,12 +34,16 @@
         38.0
       ],
       "mixing_beta": [
-        2.0,
+        4.0,
         2.0
       ],
-      "block_correlation_beta": [
+      "department_correlation_beta": [
         4.0,
         3.0
+      ],
+      "region_correlation_beta": [
+        2.0,
+        5.0
       ],
       "dirichlet_alpha_bounds": [
         0.5,

@@ -31,13 +31,21 @@ SENSITIVITY_DIR = PROJECT_ROOT / "artifacts/publication/sensitivity"
 PRIOR_DIR = PROJECT_ROOT / "artifacts/publication/prior"
 
 MODEL_COLOURS = {
-    "National anchored": "#2a78d6",
-    "Kernel anchored": "#b56824",
+    "National ancré": "#2a78d6",
+    "Local ancré": "#b56824",
 }
 
 DELTA_EXAMPLE_DRAWS = 20_000
 DIRICHLET_SPLIT_ALPHAS = (0.5, 0.75, 1.0)
 TILT_EXAMPLE_VALUES = (-1.0, 0.0, 1.0)
+
+POLLSTER_PARTY_LABELS = {
+    "NFP + DVG": "NFP+ et DVG",
+    "ENS and allies": "ENS+ et alliés",
+    "LR + DVD": "LR et DVD",
+    "RN and allies": "RN+ et alliés",
+    "Others": "Autres",
+}
 
 
 def _style(chart: alt.Chart, *, dark: bool = False) -> alt.Chart:
@@ -89,7 +97,9 @@ def _style(chart: alt.Chart, *, dark: bool = False) -> alt.Chart:
 
 def pollster_intervals_chart(*, dark: bool = False) -> alt.Chart:
     """Last published seat ranges compared with the actual result."""
-    source = load_pollster_ranges()
+    source = load_pollster_ranges().with_columns(
+        pl.col("party").replace(POLLSTER_PARTY_LABELS)
+    )
     parties = source.get_column("party").unique(maintain_order=True).to_list()
     pollsters = source.get_column("pollster").unique(maintain_order=True).to_list()
     below = pl.col("actual") < pl.col("low")
@@ -114,11 +124,11 @@ def pollster_intervals_chart(*, dark: bool = False) -> alt.Chart:
 
     y = alt.Y("pollster:N", sort=pollsters, title=None)
     tooltip = [
-        alt.Tooltip("party:N", title="Group"),
-        alt.Tooltip("pollster:N", title="Pollster"),
-        alt.Tooltip("low:Q", title="Low"),
-        alt.Tooltip("high:Q", title="High"),
-        alt.Tooltip("actual:Q", title="Actual"),
+        alt.Tooltip("party:N", title="Groupe"),
+        alt.Tooltip("pollster:N", title="Institut"),
+        alt.Tooltip("low:Q", title="Borne basse"),
+        alt.Tooltip("high:Q", title="Borne haute"),
+        alt.Tooltip("actual:Q", title="Résultat réel"),
     ]
     ranges = (
         alt.Chart(data)
@@ -128,7 +138,7 @@ def pollster_intervals_chart(*, dark: bool = False) -> alt.Chart:
             strokeCap="round",
         )
         .encode(
-            x=alt.X("low:Q", title="Seats", scale=alt.Scale(domain=[0, 230])),
+            x=alt.X("low:Q", title="Sièges", scale=alt.Scale(domain=[0, 230])),
             x2="high:Q",
             y=y,
             tooltip=tooltip,
@@ -180,6 +190,155 @@ def pollster_intervals_chart(*, dark: bool = False) -> alt.Chart:
     return _style(chart, dark=dark)
 
 
+POLLSTER_BLOCKS = {
+    "NFP + DVG": ["NFP+", "DVG"],
+    "LR + DVD": ["LR", "DVD"],
+    "RN and allies": ["RN+"],
+}
+"""Blocs dont les deux conventions s'accordent à trois sièges près.
+
+`ENS` et « autres » sont écartés : les découpages y divergent de 15 et 19 sièges,
+pour des raisons de nomenclature et non de qualité de prévision. Les inclure
+ferait passer une différence de vocabulaire pour un écart de prévision."""
+
+BLOCK_LABELS = {
+    "NFP + DVG": "NFP+ et DVG",
+    "LR + DVD": "LR et DVD",
+    "RN and allies": "RN+ et alliés",
+}
+COMPARISON_MODELS = {
+    "national": "Modèle national",
+    "national_anchored": "Modèle national ancré",
+    "kernel_anchored": "Modèle local ancré",
+}
+
+
+def _model_block_intervals() -> pl.DataFrame:
+    """Intervalles à 90 % des modèles, agrégés dans les blocs des instituts.
+
+    Les blocs sont sommés TIRAGE PAR TIRAGE avant d'en prendre les quantiles :
+    additionner les bornes de deux intervalles marginaux donnerait un intervalle
+    faux, puisque les sièges des deux familles sont corrélés.
+    """
+    rows = []
+    for model, label in COMPARISON_MODELS.items():
+        draws = pl.read_csv(RESULTS_DIR / f"joint-diagnostics-{model}.csv").filter(
+            pl.col("role") != "observed"
+        )
+        for block, families in POLLSTER_BLOCKS.items():
+            totals = draws.select(pl.sum_horizontal(families).alias("seats"))["seats"]
+            rows.append(
+                {
+                    "source": label,
+                    "kind": "Modèle",
+                    "party": block,
+                    "low": float(totals.quantile(0.05)),
+                    "high": float(totals.quantile(0.95)),
+                    "median": float(totals.median()),
+                }
+            )
+    return pl.DataFrame(rows)
+
+
+def pollster_vs_model_chart(*, dark: bool = False) -> alt.Chart:
+    """Fourchettes publiées par les instituts et intervalles à 90 % des modèles."""
+    published = load_pollster_ranges().filter(
+        pl.col("party").is_in(list(POLLSTER_BLOCKS))
+    )
+    actual = {
+        row["party"]: row["actual"]
+        for row in published.select("party", "actual").unique().iter_rows(named=True)
+    }
+    institutes = published.select(
+        pl.col("pollster").alias("source"),
+        pl.lit("Institut").alias("kind"),
+        "party",
+        pl.col("low").cast(pl.Float64),
+        pl.col("high").cast(pl.Float64),
+        pl.lit(None, dtype=pl.Float64).alias("median"),
+    )
+    data = pl.concat([institutes, _model_block_intervals()]).with_columns(
+        pl.col("party").replace(BLOCK_LABELS).alias("block"),
+        pl.col("party").replace(actual).cast(pl.Float64).alias("actual"),
+    )
+    order = published.get_column("pollster").unique(maintain_order=True).to_list()
+    order += list(COMPARISON_MODELS.values())
+    blocks = [BLOCK_LABELS[b] for b in POLLSTER_BLOCKS]
+
+    low = float(data.get_column("low").min()) - 10
+    high = float(data.get_column("high").max()) + 10
+    y = alt.Y("source:N", sort=order, title=None)
+    colour = alt.Color(
+        "kind:N",
+        title=None,
+        scale=alt.Scale(
+            domain=["Institut", "Modèle"],
+            range=["#3987e5", "#d95926"] if dark else ["#2a78d6", "#eb6834"],
+        ),
+        legend=alt.Legend(orient="top", direction="horizontal"),
+    )
+    tooltip = [
+        alt.Tooltip("block:N", title="Bloc"),
+        alt.Tooltip("source:N", title="Source"),
+        alt.Tooltip("low:Q", title="Borne basse"),
+        alt.Tooltip("high:Q", title="Borne haute"),
+        alt.Tooltip("actual:Q", title="Résultat réel"),
+    ]
+    ranges = (
+        alt.Chart(data)
+        .mark_rule(strokeWidth=5, strokeCap="round")
+        .encode(
+            x=alt.X(
+                "low:Q",
+                title="Sièges",
+                scale=alt.Scale(domain=[low, high], nice=False),
+            ),
+            x2="high:Q",
+            y=y,
+            color=colour,
+            tooltip=tooltip,
+        )
+    )
+    medians = (
+        alt.Chart(data)
+        .transform_filter("isValid(datum.median)")
+        .mark_point(
+            shape="circle",
+            filled=True,
+            size=28,
+            stroke="#14161a" if dark else "#fbfbfc",
+            strokeWidth=1.2,
+        )
+        .encode(x="median:Q", y=y, color=colour, tooltip=tooltip)
+    )
+    truth = (
+        alt.Chart(data)
+        .mark_point(
+            shape="diamond",
+            filled=True,
+            size=75,
+            color="#e9eaee" if dark else "#16181d",
+            stroke="#14161a" if dark else "#fbfbfc",
+            strokeWidth=1.5,
+        )
+        .encode(x="actual:Q", y=y, tooltip=tooltip)
+    )
+    chart = (
+        alt.layer(ranges, medians, truth)
+        .properties(width=560, height=alt.Step(21))
+        .facet(
+            row=alt.Row(
+                "block:N",
+                sort=blocks,
+                title=None,
+                header=alt.Header(labelAlign="left", labelAngle=0, labelFontWeight=600),
+            ),
+            spacing=18,
+        )
+    )
+    return _style(chart, dark=dark)
+
+
 def withdrawals_chart(*, dark: bool = False) -> alt.Chart:
     """Initially qualified candidates split into retained and withdrawn."""
     data = pd.read_csv(PROJECT_ROOT / "data/processed/legislatives2024/data.csv")
@@ -210,15 +369,15 @@ def withdrawals_chart(*, dark: bool = False) -> alt.Chart:
     }
     y = alt.Y("party:N", sort=parties, title=None)
     tooltip = [
-        alt.Tooltip("party:N", title="Group"),
-        alt.Tooltip("retained:Q", title="Final candidates"),
-        alt.Tooltip("withdrawn:Q", title="Withdrawals"),
-        alt.Tooltip("total:Q", title="Initially qualified"),
+        alt.Tooltip("party:N", title="Groupe"),
+        alt.Tooltip("retained:Q", title="Candidats maintenus"),
+        alt.Tooltip("withdrawn:Q", title="Désistements"),
+        alt.Tooltip("total:Q", title="Initialement qualifiés"),
     ]
     retained = (
         alt.Chart(summary)
         .mark_bar(color="#68707d" if dark else "#aeb3bc", height=14)
-        .encode(x=alt.X("retained:Q", title="Candidates"), y=y, tooltip=tooltip)
+        .encode(x=alt.X("retained:Q", title="Candidats"), y=y, tooltip=tooltip)
     )
     withdrawn = (
         alt.Chart(summary)
@@ -254,10 +413,10 @@ def withdrawals_chart(*, dark: bool = False) -> alt.Chart:
         width=600,
         height=alt.Step(35),
         title=alt.Title(
-            f"{total_withdrawn} withdrawals reshaped the second round",
+            f"{total_withdrawn} désistements ont rebattu les cartes du second tour",
             subtitle=(
-                "Final candidates are grey; coloured segments are withdrawals. "
-                "Labels give withdrawals / initially qualified."
+                "Les candidats maintenus sont en gris ; les segments colorés représentent les désistements. "
+                "Les étiquettes indiquent les désistements / candidats initialement qualifiés."
             ),
         ),
     )
@@ -267,36 +426,47 @@ def withdrawals_chart(*, dark: bool = False) -> alt.Chart:
 def kernel_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
     data = pd.read_csv(SENSITIVITY_DIR / "kernel-rho-lambda.csv")
     data = data[data["party"].isin(["NFP+", "ENS+", "RN+"])].copy()
-    data["rho"] = data["block_correlation"].map(lambda value: f"{value:g}")
-    data["lambda"] = data["mixing_weight"].map(lambda value: f"λ={value:g}")
-    data["reference"] = np.isclose(data["block_correlation"], 0.5) & np.isclose(
+    data["rho"] = data["department_correlation"].map(
+        lambda value: f"{value:g}".replace(".", ",")
+    )
+    data["lambda"] = data["mixing_weight"].map(
+        lambda value: f"λ={value:g}".replace(".", ",")
+    )
+    data["reference"] = np.isclose(data["department_correlation"], 0.5) & np.isclose(
         data["mixing_weight"], 0.5
     )
 
-    rho_order = ["0", "0.25", "0.5", "0.75", "1"]
-    lambda_order = ["λ=1", "λ=0.75", "λ=0.5", "λ=0.25", "λ=0"]
+    rho_order = ["0", "0,25", "0,5", "0,75", "1"]
+    lambda_order = ["λ=1", "λ=0,75", "λ=0,5", "λ=0,25", "λ=0"]
     base = alt.Chart(data).encode(
         x=alt.X("rho:N", sort=rho_order, title="Intra-département ρ"),
         y=alt.Y("lambda:N", sort=lambda_order, title=None),
         tooltip=[
-            alt.Tooltip("party:N", title="Group"),
-            alt.Tooltip("block_correlation:Q", title="ρ"),
+            alt.Tooltip("party:N", title="Groupe"),
+            alt.Tooltip("department_correlation:Q", title="ρ"),
             alt.Tooltip("mixing_weight:Q", title="λ"),
-            alt.Tooltip("width90:Q", title="90% width", format=".1f"),
+            alt.Tooltip("width90:Q", title="Largeur à 90 %", format=".1f"),
         ],
     )
-    tiles = base.mark_rect(stroke="#ffffff", strokeWidth=0.7).encode(
+    heatmap_range = (
+        ["#27313f", "#286ba3", "#63a8e8"] if dark else ["#edf4fb", "#75add8", "#075a9c"]
+    )
+    tiles = base.mark_rect(
+        stroke="#343944" if dark else "#ffffff", strokeWidth=0.7
+    ).encode(
         color=alt.Color(
             "width90:Q",
-            title="90% interval width",
-            scale=alt.Scale(scheme="blues"),
+            title="Largeur de l'intervalle à 90 %",
+            scale=alt.Scale(range=heatmap_range),
             legend=None,
         )
     )
     labels = base.mark_text(font="Arial", fontSize=10, fontWeight=600).encode(
         text=alt.Text("width90:Q", format=".0f"),
         color=alt.condition(
-            "datum.width90 >= 78", alt.value("white"), alt.value("#16181d")
+            f"datum.width90 >= {55 if dark else 78}",
+            alt.value("white"),
+            alt.value("#16181d"),
         ),
     )
     reference = base.transform_filter("datum.reference").mark_rect(
@@ -308,10 +478,10 @@ def kernel_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
         .facet(column=alt.Column("party:N", title=None, sort=["NFP+", "ENS+", "RN+"]))
         .properties(
             title=alt.Title(
-                "How dependence changes national seat uncertainty",
+                "Effet de la dépendance sur l'incertitude nationale",
                 subtitle=[
-                    "Width of the central 90% seat interval for each fixed h and λ.",
-                    "Darker means wider; the outlined cell is h×1 and λ=0.5, the prior mean.",
+                    "Largeur de l'intervalle central à 90 % des sièges pour chaque ρ et λ fixés.",
+                    "Plus la case est foncée, plus l'intervalle est large ; le contour indique ρ=0,5 et λ=0,5.",
                 ],
             )
         )
@@ -350,32 +520,50 @@ def seats_non_expressed_chart(*, dark: bool = False) -> alt.Chart:
     encoding = {
         "x": alt.X(
             "non_expressed:Q",
-            title="Abstention + blank/null votes (% registered)",
+            title="Abstention + votes blancs/nuls (% des inscrits)",
             axis=alt.Axis(tickCount=12),
         ),
         "y": alt.Y(
             "median_seats:Q",
-            title="Median seats",
+            title="Sièges médians",
             scale=alt.Scale(zero=True),
         ),
         "color": colour,
         "tooltip": [
-            alt.Tooltip("parti:N", title="Group"),
-            alt.Tooltip("non_expressed:Q", title="Non-expressed", format=".1f"),
-            alt.Tooltip("median_seats:Q", title="Median seats", format=".1f"),
+            alt.Tooltip("parti:N", title="Groupe"),
+            alt.Tooltip("non_expressed:Q", title="Non-exprimés", format=".1f"),
+            alt.Tooltip("median_seats:Q", title="Sièges médians", format=".1f"),
             alt.Tooltip("simulations:Q", title="Simulations", format=",d"),
         ],
     }
-    line = alt.Chart(data).mark_line(strokeWidth=2).encode(**encoding)
-    points = alt.Chart(data).mark_point(filled=True, size=28).encode(**encoding)
+    main_parties = ["NFP+", "ENS+", "RN+"]
+    main_party = alt.FieldOneOfPredicate(field="parti", oneOf=main_parties)
+    line = (
+        alt.Chart(data)
+        .mark_line()
+        .encode(
+            strokeWidth=alt.condition(main_party, alt.value(2.8), alt.value(1.2)),
+            opacity=alt.condition(main_party, alt.value(1), alt.value(0.45)),
+            **encoding,
+        )
+    )
+    points = (
+        alt.Chart(data)
+        .mark_point(filled=True)
+        .encode(
+            size=alt.condition(main_party, alt.value(36), alt.value(18)),
+            opacity=alt.condition(main_party, alt.value(1), alt.value(0.45)),
+            **encoding,
+        )
+    )
     chart = (line + points).properties(
         width=680,
         height=318,
         title=alt.Title(
-            "Seats conditional on simulated abstention",
+            "Sièges selon la part simulée de non-exprimés",
             subtitle=(
-                "National anchored prior predictive, α=1; "
-                "points aggregate one percentage point."
+                "Distribution prédictive a priori du modèle national ancré, α=1 ; "
+                "chaque point agrège un point de pourcentage."
             ),
         ),
     )
@@ -385,10 +573,14 @@ def seats_non_expressed_chart(*, dark: bool = False) -> alt.Chart:
 def alpha_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
     """Prior-predictive seat intervals for fixed Dirichlet concentrations."""
     data = pd.read_csv(PRIOR_DIR / "alpha-sensitivity.csv")
-    data["alpha_label"] = data["alpha"].map(lambda value: f"α={value:g}")
+    data["alpha_label"] = data["alpha"].map(
+        lambda value: f"α={value:g}".replace(".", ",")
+    )
 
     parties = list(dict.fromkeys(data["parti"]))
-    alpha_order = [f"α={value:g}" for value in sorted(data["alpha"].unique())]
+    alpha_order = [
+        f"α={value:g}".replace(".", ",") for value in sorted(data["alpha"].unique())
+    ]
     colours = {
         party_label(family): colour
         for family, colour in POLITICAL_FAMILY_COLORS.items()
@@ -411,10 +603,10 @@ def alpha_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
         "yOffset": alt.YOffset("alpha_label:N", sort=alpha_order),
         "color": colour,
         "tooltip": [
-            alt.Tooltip("parti:N", title="Group"),
+            alt.Tooltip("parti:N", title="Groupe"),
             alt.Tooltip("alpha:Q", title="α"),
             alt.Tooltip("p05:Q", title="5%", format=".0f"),
-            alt.Tooltip("mediane:Q", title="Median", format=".0f"),
+            alt.Tooltip("mediane:Q", title="Médiane", format=".0f"),
             alt.Tooltip("p95:Q", title="95%", format=".0f"),
         ],
     }
@@ -423,17 +615,8 @@ def alpha_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
         alt.Chart(data)
         .mark_rule(strokeWidth=2)
         .encode(
-            x=alt.X("p05:Q", title="Seats", scale=x_scale),
+            x=alt.X("p05:Q", title="Sièges", scale=x_scale),
             x2="p95:Q",
-            strokeDash=alt.StrokeDash(
-                "alpha_label:N",
-                sort=alpha_order,
-                scale=alt.Scale(
-                    domain=alpha_order,
-                    range=[[4, 2], [1, 0], [4, 2]],
-                ),
-                legend=None,
-            ),
             **shared,
         )
     )
@@ -463,10 +646,10 @@ def alpha_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
         width=650,
         height=46 * len(parties),
         title=alt.Title(
-            "Sensitivity to Dirichlet concentration",
+            "Sensibilité à la concentration de la loi de Dirichlet",
             subtitle=(
-                "Median and 90% prior-predictive interval; "
-                "no second-round result is used."
+                "Médiane et intervalle prédictif a priori à 90 % ; "
+                "aucun résultat du second tour n'est utilisé."
             ),
         ),
     )
@@ -489,7 +672,7 @@ def demobilisation_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
         "y": alt.Y(
             "d_label:N",
             sort=rate_order,
-            title="Fixed d",
+            title="d fixé",
             axis=alt.Axis(ticks=False, grid=False),
         ),
         "color": alt.Color(
@@ -501,10 +684,10 @@ def demobilisation_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
             ),
         ),
         "tooltip": [
-            alt.Tooltip("parti:N", title="Group"),
-            alt.Tooltip("demobilisation:Q", title="Fixed d", format=".0%"),
+            alt.Tooltip("parti:N", title="Groupe"),
+            alt.Tooltip("demobilisation:Q", title="d fixé", format=".0%"),
             alt.Tooltip("p05:Q", title="5%", format=".0f"),
-            alt.Tooltip("mediane:Q", title="Median", format=".0f"),
+            alt.Tooltip("mediane:Q", title="Médiane", format=".0f"),
             alt.Tooltip("p95:Q", title="95%", format=".0f"),
         ],
     }
@@ -512,7 +695,7 @@ def demobilisation_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
         alt.Chart(data)
         .mark_rule(strokeWidth=3, strokeCap="round", opacity=0.7)
         .encode(
-            x=alt.X("p05:Q", title="Seats", scale=alt.Scale(zero=False)),
+            x=alt.X("p05:Q", title="Sièges", scale=alt.Scale(zero=False)),
             x2="p95:Q",
             **shared,
         )
@@ -527,15 +710,15 @@ def demobilisation_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
     )
     chart = (
         alt.layer(intervals, medians)
-        .properties(width=145, height=125)
+        .properties(width=180, height=125)
         .facet(
             facet=alt.Facet("parti:N", sort=parties, title=None),
-            columns=4,
+            columns=3,
             title=alt.Title(
-                "Sensitivity to qualified-voter demobilisation",
+                "Sensibilité à la démobilisation des électeurs qualifiés",
                 subtitle=(
-                    "National anchored model; median and central 90% "
-                    "prior-predictive interval at each fixed d."
+                    "Modèle national ancré ; médiane et intervalle prédictif a priori "
+                    "central à 90 % pour chaque valeur de d."
                 ),
             ),
         )
@@ -548,8 +731,8 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
     """Marginal seat intervals for the three published model variants."""
     model_labels = {
         "national": "National",
-        "national_anchored": "National anchored",
-        "kernel_anchored": "Kernel anchored",
+        "national_anchored": "National ancré",
+        "kernel_anchored": "Local ancré",
     }
     data = pd.concat(
         [
@@ -582,17 +765,17 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
         "yOffset": alt.YOffset("model_label:N", sort=models),
         "color": colour,
         "tooltip": [
-            alt.Tooltip("party:N", title="Group"),
-            alt.Tooltip("model_label:N", title="Model"),
+            alt.Tooltip("party:N", title="Groupe"),
+            alt.Tooltip("model_label:N", title="Modèle"),
             alt.Tooltip("p05:Q", title="5%", format=".0f"),
             alt.Tooltip("p25:Q", title="25%", format=".0f"),
-            alt.Tooltip("median:Q", title="Median", format=".0f"),
+            alt.Tooltip("median:Q", title="Médiane", format=".0f"),
             alt.Tooltip("p75:Q", title="75%", format=".0f"),
             alt.Tooltip("p95:Q", title="95%", format=".0f"),
-            alt.Tooltip("actual:Q", title="Actual", format=".0f"),
+            alt.Tooltip("actual:Q", title="Résultat réel", format=".0f"),
         ],
     }
-    x = alt.X("p05:Q", title="Seats", scale=alt.Scale(domain=[0, 280]))
+    x = alt.X("p05:Q", title="Sièges", scale=alt.Scale(domain=[0, 280]))
     interval_90 = (
         alt.Chart(data)
         .mark_rule(strokeWidth=3, opacity=0.78, strokeCap="round")
@@ -615,8 +798,13 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
         )
         .encode(x=alt.X("median:Q", scale=alt.Scale(domain=[0, 280])), **shared)
     )
+    actual_data = data[["party", "actual"]].drop_duplicates()
+    actual_tooltip = [
+        alt.Tooltip("party:N", title="Groupe"),
+        alt.Tooltip("actual:Q", title="Résultat réel", format=".0f"),
+    ]
     actuals = (
-        alt.Chart(data)
+        alt.Chart(actual_data)
         .mark_point(
             shape="diamond",
             filled=True,
@@ -628,16 +816,15 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
         .encode(
             x=alt.X("actual:Q", scale=alt.Scale(domain=[0, 280])),
             y=shared["y"],
-            yOffset=shared["yOffset"],
-            tooltip=shared["tooltip"],
+            tooltip=actual_tooltip,
         )
     )
     actual_labels = (
-        alt.Chart(data[data["model"].eq("national")])
+        alt.Chart(actual_data)
         .mark_text(
             align="center",
             baseline="bottom",
-            dy=-8,
+            dy=-11,
             color="#e9eaee" if dark else "#16181d",
             font="Arial",
             fontSize=10,
@@ -646,7 +833,6 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
         .encode(
             x=alt.X("actual:Q", scale=alt.Scale(domain=[0, 280])),
             y=shared["y"],
-            yOffset=alt.YOffset("model_label:N", sort=models),
             text=alt.Text("actual:Q", format=".0f"),
         )
     )
@@ -658,12 +844,15 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
 
 def conditioned_seat_results_chart(*, dark: bool = False) -> alt.Chart:
     """Kernel-model seat intervals before and after observing expressed share."""
-    data = pd.read_csv(
-        RESULTS_DIR / "seat-intervals-conditioned-on-expressed.csv"
-    )
+    data = pd.read_csv(RESULTS_DIR / "seat-intervals-conditioned-on-expressed.csv")
     data = data[data["model"].eq("kernel_anchored")]
     parties = ["NFP+", "DVG", "ENS+", "LR", "DVD", "RN+", "DIV"]
-    conditions = ["Prior predictive", "Observed expressed share"]
+    condition_labels = {
+        "Prior predictive": "Prédictive a priori",
+        "Observed expressed share": "Part exprimée observée",
+    }
+    data["conditioning"] = data["conditioning"].replace(condition_labels)
+    conditions = list(condition_labels.values())
     colours = ["#5795df", "#d68a45"] if dark else ["#2a78d6", "#b56824"]
     colour = alt.Color(
         "conditioning:N",
@@ -682,21 +871,21 @@ def conditioned_seat_results_chart(*, dark: bool = False) -> alt.Chart:
         "yOffset": alt.YOffset("conditioning:N", sort=conditions),
         "color": colour,
         "tooltip": [
-            alt.Tooltip("party:N", title="Group"),
+            alt.Tooltip("party:N", title="Groupe"),
             alt.Tooltip("conditioning:N", title="Distribution"),
             alt.Tooltip("p05:Q", title="5%", format=".0f"),
             alt.Tooltip("p25:Q", title="25%", format=".0f"),
-            alt.Tooltip("median:Q", title="Median", format=".0f"),
+            alt.Tooltip("median:Q", title="Médiane", format=".0f"),
             alt.Tooltip("p75:Q", title="75%", format=".0f"),
             alt.Tooltip("p95:Q", title="95%", format=".0f"),
-            alt.Tooltip("actual:Q", title="Actual", format=".0f"),
+            alt.Tooltip("actual:Q", title="Résultat réel", format=".0f"),
         ],
     }
     scale = alt.Scale(domain=[0, 260])
     intervals_90 = (
         alt.Chart(data)
         .mark_rule(strokeWidth=3, opacity=0.78, strokeCap="round")
-        .encode(x=alt.X("p05:Q", title="Seats", scale=scale), x2="p95:Q", **shared)
+        .encode(x=alt.X("p05:Q", title="Sièges", scale=scale), x2="p95:Q", **shared)
     )
     intervals_50 = (
         alt.Chart(data)
@@ -713,8 +902,9 @@ def conditioned_seat_results_chart(*, dark: bool = False) -> alt.Chart:
         )
         .encode(x=alt.X("median:Q", scale=scale), **shared)
     )
+    actual_data = data[["party", "actual"]].drop_duplicates()
     actuals = (
-        alt.Chart(data)
+        alt.Chart(actual_data)
         .mark_point(
             shape="diamond",
             filled=True,
@@ -726,22 +916,28 @@ def conditioned_seat_results_chart(*, dark: bool = False) -> alt.Chart:
         .encode(
             x=alt.X("actual:Q", scale=scale),
             y=shared["y"],
-            yOffset=shared["yOffset"],
-            tooltip=shared["tooltip"],
+            tooltip=[
+                alt.Tooltip("party:N", title="Groupe"),
+                alt.Tooltip("actual:Q", title="Résultat réel", format=".0f"),
+            ],
         )
     )
     selected = int(data["selected_draws"].iloc[0])
     total = int(data["total_draws"].iloc[0])
     target = float(data["target_expressed_share"].iloc[0])
     window = float(data["window_points"].iloc[0])
+    selected_label = f"{selected:,}".replace(",", "\u202f")
+    total_label = f"{total:,}".replace(",", "\u202f")
+    target_label = f"{target:.2f}".replace(".", ",")
+    window_label = f"{window:g}".replace(".", ",")
     chart = alt.layer(intervals_90, intervals_50, medians, actuals).properties(
         width=650,
         height=58 * len(parties),
         title=alt.Title(
-            "Seat intervals conditioned on the observed expressed-vote share",
+            "Intervalles de sièges conditionnés par la part exprimée observée",
             subtitle=(
-                f"Kernel anchored; {selected:,}/{total:,} draws within ±{window:g} "
-                f"point of the observed {target:.2f}%."
+                f"Modèle local ancré ; {selected_label}/{total_label} tirages à ±{window_label} "
+                f"point de la valeur observée ({target_label} %)."
             ),
         ),
     )
@@ -751,8 +947,8 @@ def conditioned_seat_results_chart(*, dark: bool = False) -> alt.Chart:
 def joint_region_chart(*, dark: bool = False) -> alt.Chart:
     """Position of the observed seat vector in both joint predictive laws."""
     models = {
-        "national_anchored": "National anchored",
-        "kernel_anchored": "Kernel anchored",
+        "national_anchored": "National ancré",
+        "kernel_anchored": "Local ancré",
     }
     panels = []
     ink = "#e9eaee" if dark else "#16181d"
@@ -770,7 +966,7 @@ def joint_region_chart(*, dark: bool = False) -> alt.Chart:
                 x=alt.X(
                     "joint_score:Q",
                     bin=alt.Bin(maxbins=28),
-                    title="Joint energy score",
+                    title="Score énergétique joint",
                 ),
                 y=alt.Y("count():Q", title="Simulations"),
                 tooltip=[
@@ -802,32 +998,12 @@ def joint_region_chart(*, dark: bool = False) -> alt.Chart:
             )
             .encode(x="score:Q", y=alt.value(108), text="label:N")
         )
-        observed_data = pd.DataFrame(
-            {
-                "score": [float(observed["joint_score"])],
-                "label": [
-                    f"actual: {float(observed['observed_percentile']):.0%} percentile"
-                ],
-            }
-        )
+        percentile = float(observed["observed_percentile"])
+        observed_data = pd.DataFrame({"score": [float(observed["joint_score"])]})
         observed_rule = (
             alt.Chart(observed_data)
             .mark_rule(color=ink, strokeWidth=1.5)
             .encode(x="score:Q")
-        )
-        observed_label = (
-            alt.Chart(observed_data)
-            .mark_text(
-                align="left",
-                baseline="top",
-                dx=5,
-                dy=4,
-                color=ink,
-                font="Arial",
-                fontSize=10,
-                fontWeight=600,
-            )
-            .encode(x="score:Q", y=alt.value(0), text="label:N")
         )
         panels.append(
             alt.layer(
@@ -835,20 +1011,23 @@ def joint_region_chart(*, dark: bool = False) -> alt.Chart:
                 threshold_rules,
                 threshold_labels,
                 observed_rule,
-                observed_label,
             ).properties(
                 width=650,
                 height=112,
-                title=alt.Title(label, anchor="start", fontSize=11),
+                title=alt.Title(
+                    f"{label} · résultat réel au percentile {percentile:.0%}",
+                    anchor="start",
+                    fontSize=11,
+                ),
             )
         )
 
     chart = alt.vconcat(*panels, spacing=18).properties(
         title=alt.Title(
-            "Where did the actual result land jointly?",
+            "Où se situe conjointement le résultat réel ?",
             subtitle=(
-                "Split-sample energy-score centrality; "
-                "lower scores are more central under the model."
+                "Centralité fondée sur le score énergétique et un échantillon scindé ; "
+                "un score faible est plus central dans le modèle."
             ),
         )
     )
@@ -857,8 +1036,8 @@ def joint_region_chart(*, dark: bool = False) -> alt.Chart:
 
 def _dominant_party_data() -> pd.DataFrame:
     labels = {
-        "national_anchored": "National anchored",
-        "kernel_anchored": "Kernel anchored",
+        "national_anchored": "National ancré",
+        "kernel_anchored": "Local ancré",
     }
     seat_columns = ["NFP+", "DVG", "ENS+", "LR", "DVD", "RN+", "DIV"]
     rows = []
@@ -881,7 +1060,7 @@ def _dominant_party_data() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-TIE_LABEL = "Tie for first"
+TIE_LABEL = "Égalité en tête"
 TIE_COLOUR_LIGHT, TIE_COLOUR_DARK = "#8a9099", "#8f97a5"
 
 
@@ -901,13 +1080,13 @@ def dominant_party_chart(*, dark: bool = False) -> alt.Chart:
     colours[TIE_LABEL] = TIE_COLOUR_DARK if dark else TIE_COLOUR_LIGHT
 
     data = _dominant_party_data()
-    data = data[data["model"] == "National anchored"]
+    data = data[data["model"] == "National ancré"]
     order = data.sort_values("probability", ascending=False)["party"].tolist()
 
     base = alt.Chart(data).encode(
         x=alt.X(
             "probability:Q",
-            title="Probability of being the unique largest group",
+            title="Probabilité d'être l'unique premier groupe",
             axis=alt.Axis(format="%"),
             # Domaine dérivé : un maximum écrit en dur tronque la barre dès que
             # les artefacts changent, ce qui est arrivé.
@@ -917,8 +1096,8 @@ def dominant_party_chart(*, dark: bool = False) -> alt.Chart:
         ),
         y=alt.Y("party:N", sort=order, title=None),
         tooltip=[
-            alt.Tooltip("party:N", title="Group"),
-            alt.Tooltip("probability:Q", title="Probability", format=".1%"),
+            alt.Tooltip("party:N", title="Groupe"),
+            alt.Tooltip("probability:Q", title="Probabilité", format=".1%"),
         ],
     )
     bars = base.mark_bar(height=18, cornerRadiusEnd=3).encode(
@@ -944,7 +1123,7 @@ def dominant_party_chart(*, dark: bool = False) -> alt.Chart:
         title=alt.Title(
             "Qui obtient le plus de sièges ?",
             subtitle=(
-                "Distribution _prior-predictive_ de la probabilité d'avoir une majorité relative"
+                "Distribution prédictive a priori de la probabilité d'avoir une majorité relative"
             ),
         ),
     )
@@ -990,24 +1169,32 @@ def joint_seats_chart(*, dark: bool = False) -> alt.Chart:
             .encode(
                 x=alt.X(
                     "x0:Q",
-                    title=f"{x_name} seats",
+                    title=f"Sièges {x_name}",
                     scale=alt.Scale(domain=[x_low, x_high]),
                 ),
                 x2="x1:Q",
                 y=alt.Y(
                     "y0:Q",
-                    title=f"{y_name} seats",
+                    title=f"Sièges {y_name}",
                     scale=alt.Scale(domain=[y_low, y_high]),
                 ),
                 y2="y1:Q",
                 color=alt.Color(
-                    "count:Q", scale=alt.Scale(scheme="blues"), legend=None
+                    "count:Q",
+                    scale=alt.Scale(
+                        range=(
+                            ["#27313f", "#286ba3", "#63a8e8"]
+                            if dark
+                            else ["#edf4fb", "#75add8", "#075a9c"]
+                        )
+                    ),
+                    legend=None,
                 ),
                 tooltip=[
-                    alt.Tooltip("x0:Q", title=f"{x_name} from", format=".0f"),
-                    alt.Tooltip("x1:Q", title="to", format=".0f"),
-                    alt.Tooltip("y0:Q", title=f"{y_name} from", format=".0f"),
-                    alt.Tooltip("y1:Q", title="to", format=".0f"),
+                    alt.Tooltip("x0:Q", title=f"{x_name} : de", format=".0f"),
+                    alt.Tooltip("x1:Q", title="à", format=".0f"),
+                    alt.Tooltip("y0:Q", title=f"{y_name} : de", format=".0f"),
+                    alt.Tooltip("y1:Q", title="à", format=".0f"),
                     alt.Tooltip("count:Q", title="Simulations", format=".0f"),
                 ],
             )
@@ -1018,7 +1205,7 @@ def joint_seats_chart(*, dark: bool = False) -> alt.Chart:
                     {
                         "x": [observed[x_name]],
                         "y": [observed[y_name]],
-                        "label": ["Actual 2024 result"],
+                        "label": ["Résultat réel de 2024"],
                     }
                 )
             )
@@ -1037,7 +1224,7 @@ def joint_seats_chart(*, dark: bool = False) -> alt.Chart:
     chart = alt.hconcat(*panels, spacing=25).properties(
         title=alt.Title(
             "Corrélation des prédictions de sièges",
-            subtitle="Kernel anchored prior predictive; darker cells contain more simulations, diamond is the actual result.",
+            subtitle="Distribution prédictive a priori du modèle local ancré ; les cases foncées contiennent davantage de simulations et le losange indique le résultat réel.",
         )
     )
     return _style(chart, dark=dark).resolve_scale(color="independent")
@@ -1048,6 +1235,7 @@ def expressed_share_chart(*, dark: bool = False) -> alt.Chart:
     data = pd.read_csv(RESULTS_DIR / "expressed-diagnostics-national_anchored.csv")
     data = data[data["scope"].eq("national_draw")]
     n_simulations = len(data)
+    n_simulations_label = f"{n_simulations:,}".replace(",", "\u202f")
     median = float(data["predicted_share"].median())
     low, high = data["predicted_share"].quantile([0.05, 0.95])
     v_low, v_high = data["predicted_share"].quantile([0.005, 0.995])
@@ -1091,7 +1279,7 @@ def expressed_share_chart(*, dark: bool = False) -> alt.Chart:
         title=alt.Title(
             "Distribution prédictive des suffrages exprimés",
             subtitle=(
-                f"Modèle national ancré, {n_simulations:,} simulations ; bande orange : intervalle central à 90 %, "
+                f"Modèle national ancré, {n_simulations_label} simulations ; bande orange : intervalle central à 90 %, "
                 "trait : médiane."
             ),
         ),
@@ -1171,13 +1359,14 @@ def district_0101_national_delta_chart(*, dark: bool = False) -> alt.Chart:
     median_rule = (
         alt.Chart(bounds).mark_rule(color="#b56824", strokeWidth=2).encode(x="median:Q")
     )
+    draw_count_label = f"{len(delta):,}".replace(",", "\u202f")
     chart = (band + bars + median_rule).properties(
         width=620,
         height=225,
         title=alt.Title(
             "0101 : incertitude sur le choc national",
             subtitle=(
-                f"Partie centrale à 99 % des {len(delta):,} tirages de δnat, avec δ0101 = 0 ; "
+                f"Partie centrale à 99 % des {draw_count_label} tirages de δnat, avec δ0101 = 0 ; "
                 "bande orange : intervalle à 90 %, trait : médiane."
             ),
         ),
@@ -1190,7 +1379,7 @@ def district_expressed_error_chart(*, dark: bool = False) -> alt.Chart:
     labels = {
         "national": "National",
         "national_anchored": "National ancré",
-        "kernel_anchored": "Kernel ancré",
+        "kernel_anchored": "Local ancré",
     }
     frames = []
     for model, label in labels.items():
@@ -1207,6 +1396,7 @@ def district_expressed_error_chart(*, dark: bool = False) -> alt.Chart:
             "error:Q",
             bin=alt.Bin(step=2),
             title=None,
+            axis=alt.Axis(values=[0, 4, 8, 12, 16, 20]),
         ),
         y=alt.Y("count():Q", title="Circonscriptions"),
         color=alt.Color(
@@ -1231,8 +1421,8 @@ def district_expressed_error_chart(*, dark: bool = False) -> alt.Chart:
             title=alt.Title(
                 "Écart aux suffrages exprimés réellement observés",
                 subtitle=(
-                    "Médiane prédictive moins résultat réel, en points de pourcentage. "
-                    "Une erreur positive signifie une participation surestimée."
+                    "Erreur absolue entre la médiane prédictive et le résultat réel, "
+                    "en points de pourcentage."
                 ),
             )
         )
@@ -1250,7 +1440,7 @@ def simplex_chart(*, dark: bool = False) -> alt.Chart:
             rows.append(
                 {
                     "alpha": alpha,
-                    "alpha_label": f"α = {alpha:g}",
+                    "alpha_label": f"α = {alpha:g}".replace(".", ","),
                     "transfer": "ENS+ → RN+",
                     "rate": rate,
                     "density": value,
@@ -1259,7 +1449,7 @@ def simplex_chart(*, dark: bool = False) -> alt.Chart:
             rows.append(
                 {
                     "alpha": alpha,
-                    "alpha_label": f"α = {alpha:g}",
+                    "alpha_label": f"α = {alpha:g}".replace(".", ","),
                     "transfer": "ENS+ → LR",
                     "rate": 1 - rate,
                     "density": value,
@@ -1280,11 +1470,11 @@ def simplex_chart(*, dark: bool = False) -> alt.Chart:
         .encode(
             x=alt.X(
                 "rate:Q",
-                title="Transfer rate",
+                title="Taux de report",
                 scale=alt.Scale(domain=[0, 1], nice=False),
                 axis=alt.Axis(values=[0, 0.25, 0.5, 0.75, 1], format=".0%"),
             ),
-            y=alt.Y("density:Q", title="Density", scale=alt.Scale(zero=True)),
+            y=alt.Y("density:Q", title="Densité", scale=alt.Scale(zero=True)),
             color=alt.Color(
                 "transfer:N",
                 sort=transfers,
@@ -1293,40 +1483,39 @@ def simplex_chart(*, dark: bool = False) -> alt.Chart:
             ),
             tooltip=[
                 alt.Tooltip("alpha:Q", title="α"),
-                alt.Tooltip("transfer:N", title="Transfer"),
-                alt.Tooltip("rate:Q", title="Rate", format=".1%"),
-                alt.Tooltip("density:Q", title="Density", format=".2f"),
+                alt.Tooltip("transfer:N", title="Report"),
+                alt.Tooltip("rate:Q", title="Taux", format=".1%"),
+                alt.Tooltip("density:Q", title="Densité", format=".2f"),
             ],
         )
         .properties(width=200, height=180)
     )
-    chart = (
-        base.facet(
-            column=alt.Column(
-                "alpha_label:N",
-                sort=[f"α = {alpha:g}" for alpha in DIRICHLET_SPLIT_ALPHAS],
-                title=None,
-                header=alt.Header(labelFontWeight=600),
+    chart = base.facet(
+        column=alt.Column(
+            "alpha_label:N",
+            sort=[
+                f"α = {alpha:g}".replace(".", ",") for alpha in DIRICHLET_SPLIT_ALPHAS
+            ],
+            title=None,
+            header=alt.Header(labelFontWeight=600),
+        ),
+        spacing=18,
+        title=alt.TitleParams(
+            "Distributions théoriques des reports entre deux destinations",
+            subtitle=(
+                "La plus grande part Gamma normalisée est attribuée à LR ; "
+                "la plus petite à RN+."
             ),
-            spacing=18,
-            title=alt.TitleParams(
-                "Theoretical two-way transfer distributions",
-                subtitle=(
-                    "The larger normalized Gamma share is assigned to LR; "
-                    "the smaller one to RN+."
-                ),
-            ),
-        )
-        .resolve_scale(y="independent")
-    )
+        ),
+    ).resolve_scale(y="independent")
     return _style(chart, dark=dark)
 
 
 def tilt_effect_chart(*, dark: bool = False) -> alt.Chart:
     """Allocation of mobilised non-expressed voters for two duel balances."""
     scenarios = [
-        ("Close first round · A 55% / B 45%", 0.55),
-        ("Unequal first round · A 70% / B 30%", 0.70),
+        ("Premier tour serré · A 55 % / B 45 %", 0.55),
+        ("Premier tour déséquilibré · A 70 % / B 30 %", 0.70),
     ]
     rows = []
     for scenario, first_round_a in scenarios:
@@ -1335,14 +1524,14 @@ def tilt_effect_chart(*, dark: bool = False) -> alt.Chart:
             shares = first_round**tilt
             shares /= shares.sum()
             start = 0.0
-            for candidate, share in zip(("Candidate A", "Candidate B"), shares):
+            for candidate, share in zip(("Candidat A", "Candidat B"), shares):
                 end = start + float(share)
                 rows.append(
                     {
                         "scenario": scenario,
                         "tilt": tilt,
-                        "tilt_label": f"t = {tilt:g}",
-                        "band": "Mobilised flow",
+                        "tilt_label": f"τ = {tilt:g}",
+                        "band": "Flux mobilisé",
                         "candidate": candidate,
                         "share": float(share),
                         "start": start,
@@ -1354,7 +1543,7 @@ def tilt_effect_chart(*, dark: bool = False) -> alt.Chart:
                 start = end
 
     data = pd.DataFrame(rows)
-    candidates = ["Candidate A", "Candidate B"]
+    candidates = ["Candidat A", "Candidat B"]
     colours = ["#4f83cc", "#d17b35"]
     shared = {
         "y": alt.Y("band:N", axis=None),
@@ -1365,51 +1554,137 @@ def tilt_effect_chart(*, dark: bool = False) -> alt.Chart:
             legend=alt.Legend(orient="top", direction="horizontal"),
         ),
         "tooltip": [
-            alt.Tooltip("scenario:N", title="First round"),
-            alt.Tooltip("tilt:Q", title="Tilt"),
+            alt.Tooltip("scenario:N", title="Premier tour"),
+            alt.Tooltip("tilt:Q", title="Paramètre de tilt"),
             alt.Tooltip("candidate:N", title="Destination"),
-            alt.Tooltip("share:Q", title="Mobilised flow", format=".1%"),
+            alt.Tooltip("share:Q", title="Flux mobilisé", format=".1%"),
         ],
     }
-    bars = alt.Chart(data).mark_bar(size=24).encode(
+    bars = (
+        alt.Chart(data)
+        .mark_bar(size=24)
+        .encode(
+            x=alt.X(
+                "start:Q",
+                title="Part du flux mobilisé",
+                scale=alt.Scale(domain=[0, 1], nice=False),
+                axis=alt.Axis(values=[0, 0.5, 1], format=".0%"),
+            ),
+            x2="end:Q",
+            **shared,
+        )
+    )
+    labels = (
+        alt.Chart(data)
+        .mark_text(
+            color="white",
+            font="Arial",
+            fontSize=11,
+            fontWeight=600,
+        )
+        .encode(
+            x=alt.X("middle:Q", scale=alt.Scale(domain=[0, 1], nice=False)),
+            y=alt.Y("band:N", axis=None),
+            text="share_label:N",
+            detail="candidate:N",
+        )
+    )
+    chart = (
+        (bars + labels)
+        .properties(width=176, height=34)
+        .facet(
+            row=alt.Row(
+                "scenario:N",
+                sort=[scenario for scenario, _ in scenarios],
+                title=None,
+                header=alt.Header(labelAngle=0, labelAlign="left", labelFontWeight=600),
+            ),
+            column=alt.Column(
+                "tilt_label:N",
+                sort=[f"τ = {tilt:g}" for tilt in TILT_EXAMPLE_VALUES],
+                title=None,
+                header=alt.Header(labelFontWeight=600),
+            ),
+            spacing=16,
+            title=alt.TitleParams(
+                "Effet du tilt sur la répartition des électeurs mobilisés dans un duel",
+                subtitle="Lignes : rapport de force au premier tour · colonnes : tilt national",
+            ),
+        )
+    )
+    return _style(chart, dark=dark)
+
+
+def win_probability_calibration_chart(
+    *, model: str = "kernel_anchored", dark: bool = False
+) -> alt.Chart:
+    """Courbe de fiabilité : probabilité de victoire prédite contre fréquence
+    réalisée, par circonscription et parti qualifié (voir
+    `scripts/analyses/win_probability_calibration.py`)."""
+    path = SENSITIVITY_DIR / f"win-probability-calibration-{model}.csv"
+    data = pd.read_csv(path)
+    accent = "#3987e5" if dark else "#2a78d6"
+    muted = "#aeb4c0" if dark else "#5a616e"
+
+    diagonal = (
+        alt.Chart(pd.DataFrame({"x": [0, 1], "y": [0, 1]}))
+        .mark_line(strokeDash=[3, 3], color=muted, strokeWidth=1.3)
+        .encode(x="x:Q", y="y:Q")
+    )
+    axis_pct = alt.Axis(format=".0%", values=[0, 0.25, 0.5, 0.75, 1])
+    # Graduations tous les 10 % en x : les points sont trop resserrés vers les
+    # extrêmes pour se situer précisément avec seulement les repères de 25 %.
+    # Un label sur deux (multiples de 20 %) pour ne pas surcharger l'axe ; les
+    # graduations intermédiaires (10 %, 30 %...) restent visibles sans texte.
+    axis_pct_x = alt.Axis(
+        format=".0%",
+        values=[i / 20 for i in range(21)],
+        labelExpr="datum.value % 0.2 < 0.001 ? format(datum.value, '.0%') : ''",
+    )
+    base = alt.Chart(data).encode(
         x=alt.X(
-            "start:Q",
-            title="Share of mobilised flow",
-            scale=alt.Scale(domain=[0, 1], nice=False),
-            axis=alt.Axis(values=[0, 0.5, 1], format=".0%"),
+            "predit_moyen:Q",
+            title="Probabilité de victoire prédite",
+            axis=axis_pct_x,
+            scale=alt.Scale(domain=[0, 1]),
         ),
-        x2="end:Q",
-        **shared,
+        y=alt.Y(
+            "realise:Q",
+            title="Fréquence réalisée",
+            axis=axis_pct,
+            scale=alt.Scale(domain=[0, 1]),
+        ),
     )
-    labels = alt.Chart(data).mark_text(
-        color="white",
-        font="Arial",
-        fontSize=11,
-        fontWeight=600,
-    ).encode(
-        x=alt.X("middle:Q", scale=alt.Scale(domain=[0, 1], nice=False)),
-        y=alt.Y("band:N", axis=None),
-        text="share_label:N",
-        detail="candidate:N",
+    tooltip = [
+        alt.Tooltip("predit_min:Q", title="Prédit, borne basse", format=".0%"),
+        alt.Tooltip("predit_max:Q", title="Prédit, borne haute", format=".0%"),
+        alt.Tooltip("realise:Q", title="Réalisé", format=".1%"),
+        alt.Tooltip("ic95_bas:Q", title="IC 95 %, bas", format=".1%"),
+        alt.Tooltip("ic95_haut:Q", title="IC 95 %, haut", format=".1%"),
+        alt.Tooltip("n:Q", title="Cellules dans la tranche"),
+    ]
+    error_bars = base.mark_rule(color=accent, strokeWidth=1.4, opacity=0.55).encode(
+        y="ic95_bas:Q", y2="ic95_haut:Q", tooltip=tooltip
     )
-    chart = (bars + labels).properties(width=176, height=34).facet(
-        row=alt.Row(
-            "scenario:N",
-            sort=[scenario for scenario, _ in scenarios],
-            title=None,
-            header=alt.Header(labelAngle=0, labelAlign="left", labelFontWeight=600),
+    points = base.mark_circle(color=accent, opacity=0.92).encode(
+        size=alt.Size(
+            "n:Q",
+            title="Cellules",
+            scale=alt.Scale(range=[40, 420]),
+            legend=alt.Legend(symbolFillColor=accent, format="d"),
         ),
-        column=alt.Column(
-            "tilt_label:N",
-            sort=[f"t = {tilt:g}" for tilt in TILT_EXAMPLE_VALUES],
-            title=None,
-            header=alt.Header(labelFontWeight=600),
-        ),
-        spacing=16,
-        title=alt.TitleParams(
-            "How tilt allocates mobilised voters in a duel",
-            subtitle="Rows: first-round balance · columns: national tilt",
-        ),
+        tooltip=tooltip,
+    )
+    chart = (diagonal + error_bars + points).properties(
+        width=420,
+        height=420,
+        title={
+            "text": "Calibration des probabilités de victoire locale",
+            "subtitle": [
+                f"Modèle {model} · circonscriptions et partis qualifiés,",
+                "déciles à effectif égal, IC 95 % de Wilson par tranche",
+            ],
+        },
     )
     return _style(chart, dark=dark)
 
@@ -1419,6 +1694,7 @@ def write_classic_charts(output_dir: Path = OUTPUT_DIR) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     charts = {
         "pollster-intervals": pollster_intervals_chart,
+        "pollster-vs-model": pollster_vs_model_chart,
         "withdrawals": withdrawals_chart,
         "kernel-sensitivity": kernel_sensitivity_chart,
         "seats-by-non-expressed": seats_non_expressed_chart,
@@ -1440,6 +1716,7 @@ def write_classic_charts(output_dir: Path = OUTPUT_DIR) -> None:
             path = output_dir / f"{name}{suffix}.svg"
             build_chart(dark=dark).save(path)
             print(f"wrote {path.relative_to(PROJECT_ROOT)} (Altair)")
+
 
 if __name__ == "__main__":
     write_classic_charts()

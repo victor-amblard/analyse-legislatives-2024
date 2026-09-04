@@ -125,7 +125,7 @@ def main():
         help=(
             "'national' = modèle minimal, une seule matrice pour toutes les circos ; "
             "'national_anchored' = + part des suffrages exprimés ancrée ; "
-            "'kernel_anchored' = + variations locales corrélées par Hellinger"
+            "'kernel_anchored' = + variations locales corrélées dans le département"
         ),
     )
     parser.add_argument("--csv", type=Path, help="écrit le détail par circonscription")

@@ -49,7 +49,7 @@ def build_orderings_svg() -> str:
     text{font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif}
     </style>""",
         f'<rect class="surface" width="{width:.0f}" height="{height:.0f}"/>',
-        '<text class="muted" x="8" y="24" font-size="10.5" letter-spacing="0.07em">SOURCE</text>',
+        '<text class="muted" x="8" y="24" font-size="10.5" letter-spacing="0.07em">ORIGINE</text>',
         f'<text class="muted" x="{pad_l}" y="24" font-size="10.5" letter-spacing="0.07em">Transferts vers... (du plus au moins préféré)</text>',
     ]
 
@@ -96,6 +96,6 @@ def build_orderings_svg() -> str:
     )
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width:.0f} {height:.0f}" '
-        f'role="img" aria-label="Declared transfer preference ordering for each source party.">'
+        f'role="img" aria-label="Ordre déclaré des préférences de report pour chaque parti d’origine.">'
         f'{"".join(parts)}</svg>\n'
     )

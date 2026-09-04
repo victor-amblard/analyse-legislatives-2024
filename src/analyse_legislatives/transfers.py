@@ -31,7 +31,6 @@ from analyse_legislatives.parties import (
     NON_EXPRIMES,
     DESTINATIONS,
     Destination,
-    PoliticalFamily,
 )
 
 ZERO_DIVISION_FLOOR = 0.0

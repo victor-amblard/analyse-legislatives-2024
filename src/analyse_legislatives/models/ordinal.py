@@ -138,8 +138,7 @@ def gammas_to_row_by_district(
     ranked = -np.sort(-shares[:n_ordered], axis=0)
     districts = np.arange(shares.shape[1])
     row = {
-        target: ranked[ranks[i], districts]
-        for i, target in enumerate(ordered_targets)
+        target: ranked[ranks[i], districts] for i, target in enumerate(ordered_targets)
     }
     row.update({target: shares[n_ordered + j] for j, target in enumerate(free_targets)})
     return row

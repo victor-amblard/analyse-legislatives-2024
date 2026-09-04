@@ -9,19 +9,19 @@ NIVEAU NATIONAL
     NFP+    181       203   [  156 —   235]       oui
      DVG     12        13   [   11 —    14]       oui
     ENS+    165       164   [  129 —   183]       oui
-      LR     39        36   [   20 —    44]       oui
-     DVD     27        24   [   18 —    30]       oui
-     RN+    143       132   [   84 —   195]       oui
+      LR     39        36   [   19 —    44]       oui
+     DVD     27        24   [   17 —    30]       oui
+     RN+    143       132   [   84 —   199]       oui
 
   Energy score du vecteur de sièges (unité : sièges)
-    national                    :    17.63   (scénario médian seul : 25.00)
+    national                    :    17.98   (scénario médian seul : 25.00)
       → 1 seule observation : indicatif, non concluant.
 
   Région prédictive jointe du vecteur de sièges
-    résultat réel : score 17.63 | percentile d'éloignement 30.8%
-    région 50 % : dedans (seuil 22.42) | région 90 % : dedans (seuil 48.86)
+    résultat réel : score 18.24 | percentile d'éloignement 31.1%
+    région 50 % : dedans (seuil 23.60) | région 90 % : dedans (seuil 50.38)
 
-  Suffrages exprimés nationaux : réel 63.0 % | médiane 66.5 % | IC90 [60.8 — 75.7] | dans IC
+  Suffrages exprimés nationaux : réel 63.0 % | médiane 66.5 % | IC90 [60.5 — 75.8] | dans IC
 
 ==========================================================================
 PAR CIRCONSCRIPTION
@@ -29,25 +29,25 @@ PAR CIRCONSCRIPTION
 
   Score des partis qualifiés (% exprimés)  (1091 observations)
       niveau   couverture    largeur moyenne
-         50%        38.6%           3.68 pts  (trop confiant)
-         80%        66.9%           6.70 pts  (trop confiant)
-         90%        74.7%           8.29 pts  (trop confiant)
-         95%        79.0%           9.51 pts  (trop confiant)
+         50%        38.5%           3.67 pts  (trop confiant)
+         80%        67.6%           6.75 pts  (trop confiant)
+         90%        75.0%           8.36 pts  (trop confiant)
+         95%        79.3%           9.59 pts  (trop confiant)
     PIT par décile (10 % attendu partout) : 17% 9% 9% 9% 7% 7% 8% 8% 10% 16%
 
   Taux de suffrages exprimés (% inscrits)  (501 observations)
       niveau   couverture    largeur moyenne
-         50%        40.7%           6.45 pts  (trop confiant)
-         80%        78.0%          12.41 pts
-         90%        92.4%          16.18 pts
-         95%        96.4%          19.50 pts
-    PIT par décile (10 % attendu partout) : 22% 22% 30% 17% 8% 1% 0% 0% 0% 0%
+         50%        40.1%           6.51 pts  (trop confiant)
+         80%        80.2%          12.38 pts
+         90%        92.6%          16.29 pts
+         95%        96.8%          19.76 pts
+    PIT par décile (10 % attendu partout) : 19% 25% 29% 17% 7% 1% 0% 0% 0% 0%
 
   Vainqueur : 89.6% de circonscriptions correctes (449/501)
-    probabilité moyenne attribuée au vrai vainqueur : 85.4%
+    probabilité moyenne attribuée au vrai vainqueur : 85.3%
     calibration des probabilités de victoire (partis en lice) :
-      prédit 0%-20% : réalisé   2.3% (477 cas)
-      prédit 20%-40% : réalisé  33.3% (87 cas)
-      prédit 40%-60% : réalisé  50.9% (55 cas)
-      prédit 60%-80% : réalisé  66.3% (83 cas)
-      prédit 80%-101% : réalisé  97.2% (389 cas)
+      prédit 0%-20% : réalisé   2.5% (479 cas)
+      prédit 20%-40% : réalisé  32.1% (84 cas)
+      prédit 40%-60% : réalisé  50.9% (57 cas)
+      prédit 60%-80% : réalisé  67.5% (80 cas)
+      prédit 80%-101% : réalisé  96.9% (391 cas)

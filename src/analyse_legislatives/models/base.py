@@ -106,9 +106,7 @@ class Model(ABC):
         if self.qualified_demobilisation is not None and not (
             0 <= self.qualified_demobilisation < 1
         ):
-            raise ValueError(
-                "`qualified_demobilisation` doit appartenir à [0, 1)."
-            )
+            raise ValueError("`qualified_demobilisation` doit appartenir à [0, 1).")
 
         overlap = [
             source

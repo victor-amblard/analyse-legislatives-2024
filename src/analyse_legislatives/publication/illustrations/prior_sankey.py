@@ -14,6 +14,11 @@ from analyse_legislatives.parties import (
 from analyse_legislatives.publication.illustrations._shared import ABS_COLOR
 from analyse_legislatives.viz.palette import POLITICAL_FAMILY_COLORS
 
+
+def _thousands(value: float) -> str:
+    return f"{value / 1000:,.0f}".replace(",", "\u202f") + " k"
+
+
 BLOG_DUEL = ("ENS+", "RN+")
 SANKEY_DRAWS = 240
 
@@ -136,8 +141,8 @@ def build_prior_sankey_svg() -> str:
         f'<rect class="surface" width="{width}" height="{height}"/>',
         '<text class="ink" x="16" y="26" font-size="13" font-weight="600">Estimation des flux de report par le modèle</text>',
         f'<text class="muted" x="16" y="44" font-size="11">Flux médians de la distribution prédictive a priori sur {district_count} duels {targets[0]}/{targets[1]}. La largeur des flux correspond au nombre de voix.</text>',
-        f'<text class="muted" x="16" y="{top - 12}" font-size="10" letter-spacing="0.06em">RESERVOIR</text>',
-        f'<text class="muted" x="{right_x + node_width}" y="{top - 12}" font-size="10" letter-spacing="0.06em" text-anchor="end">SECOND ROUND</text>',
+        f'<text class="muted" x="16" y="{top - 12}" font-size="10" letter-spacing="0.06em">RÉSERVOIR</text>',
+        f'<text class="muted" x="{right_x + node_width}" y="{top - 12}" font-size="10" letter-spacing="0.06em" text-anchor="end">SECOND TOUR</text>',
     ]
 
     left_cursor = {name: left[name][0] for name in sources}
@@ -203,7 +208,7 @@ def build_prior_sankey_svg() -> str:
             parts.extend(
                 [
                     f'<text class="ink" x="{text_x}" y="{label_y - 1:.1f}" font-size="11.5" font-weight="600" text-anchor="{anchor}">{escape(name)}</text>',
-                    f'<text class="muted" x="{text_x}" y="{label_y + 11:.1f}" font-size="10" text-anchor="{anchor}">{totals[name] / 1000:,.0f}k</text>',
+                    f'<text class="muted" x="{text_x}" y="{label_y + 11:.1f}" font-size="10" text-anchor="{anchor}">{_thousands(totals[name])}</text>',
                 ]
             )
 
@@ -214,20 +219,20 @@ def build_prior_sankey_svg() -> str:
     notes = [
         (largest_party, 0, f"{largest_party} → {targets[0]}"),
         (largest_party, 1, f"{largest_party} → {targets[1]}"),
-        ("NON_EXPRIMES", 2, "non-voters staying home"),
+        ("NON_EXPRIMES", 2, "non-exprimés qui le restent"),
     ]
     intervals = "  ·  ".join(
-        f"{label} {flows[source][index][1] / 1000:,.0f}k–{flows[source][index][2] / 1000:,.0f}k"
+        f"{label} {_thousands(flows[source][index][1])}–{_thousands(flows[source][index][2])}"
         for source, index, label in notes
     )
     parts.extend(
         [
-            f'<text class="muted" x="16" y="{height - bottom + 8}" font-size="10.5">90% prior interval — {escape(intervals)}</text>',
-            f'<text class="muted" x="16" y="{height - bottom + 23}" font-size="10.5">The bands are enormous: the model has an ORDER, not a rate. Nothing here is fitted to the second round.</text>',
+            f'<text class="muted" x="16" y="{height - bottom + 8}" font-size="10.5">Intervalle a priori à 90 % — {escape(intervals)}</text>',
+            f'<text class="muted" x="16" y="{height - bottom + 23}" font-size="10.5">Les intervalles sont immenses : le modèle connaît un ORDRE, pas un taux. Rien ici n’est ajusté sur le second tour.</text>',
         ]
     )
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
-        f'role="img" aria-label="Prior-predictive vote flows in {district_count} runoffs.">'
+        f'role="img" aria-label="Flux de voix prédictifs a priori dans {district_count} duels.">'
         f'{"".join(parts)}</svg>\n'
     )

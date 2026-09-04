@@ -85,11 +85,24 @@ class CirconscriptionResult:
         s = "Résultats 1er tour\n"
         s += f"=== {self.circonscription.name} ({self.circonscription.id}) ===\n"
         s += "Partis en lice\n"
-        s += '\n'.join([f'{source} : {votes}' for source, votes in self.competing_parties_results.items() if votes != 0])
+        s += "\n".join(
+            [
+                f"{source} : {votes}"
+                for source, votes in self.competing_parties_results.items()
+                if votes != 0
+            ]
+        )
         s += "\nPartis éliminés\n"
-        s += '\n'.join([f'{source} : {votes}' for source, votes in self.eliminated_parties_results.items() if votes != 0])
+        s += "\n".join(
+            [
+                f"{source} : {votes}"
+                for source, votes in self.eliminated_parties_results.items()
+                if votes != 0
+            ]
+        )
 
         return s
+
 
 @dataclass
 class CirconscriptionPrediction:
