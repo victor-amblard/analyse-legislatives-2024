@@ -7,8 +7,13 @@ import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeWrapTables from './src/plugins/rehype-wrap-tables.mjs';
 import rehypeSidenotes from './src/plugins/rehype-sidenotes.mjs';
+import rehypeBasePath from './src/plugins/rehype-base-path.mjs';
+
+const base = '/analyse-legislatives-2024';
 
 export default defineConfig({
+  site: 'https://victor-amblard.github.io',
+  base,
   markdown: {
     // Astro 7 utilise Sätteri par défaut ; on revient explicitement au
     // processeur remark/rehype, seul à accepter les plugins ci-dessous.
@@ -34,6 +39,7 @@ export default defineConfig({
           },
         ],
         rehypeWrapTables,
+        [rehypeBasePath, { base }],
       ],
     }),
     shikiConfig: { theme: 'github-dark', wrap: false },

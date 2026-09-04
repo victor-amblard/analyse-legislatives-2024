@@ -109,7 +109,9 @@ def national_expressed_share(digest: str, ids: tuple[str, ...]) -> pl.Series:
 def render_seat_metrics(seats_by_simu: pl.DataFrame, median_seats: dict) -> None:
     """Une colonne de métrique par parti : sièges du scénario médian, et
     intervalle à 90% en dessous."""
-    for col, party in zip(st.columns(len(SPECTRUM_LABELS)), SPECTRUM_LABELS):
+    for col, party in zip(
+        st.columns(len(SPECTRUM_LABELS), gap="small"), SPECTRUM_LABELS
+    ):
         col.metric(
             party,
             format_number(median_seats[party]),
@@ -166,7 +168,7 @@ with tab_national:
     st.subheader("Participation simulée")
     expressed_by_simu = national_expressed_share(digest, artifact_ids)
     with st.container(border=True):
-        col_metric, col_chart = st.columns([1, 2], vertical_alignment="center")
+        col_metric, col_chart = st.columns([1, 2], gap="medium", wrap=True)
         with col_metric:
             st.metric(
                 "Taux de suffrages exprimés national simulé (2nd tour)",
@@ -281,7 +283,7 @@ with tab_circo:
         # la circonscription affichée évite une table nationale de 8 M de lignes.
         circo_df = simulation.to_long_frame(cube[:, index : index + 1, :], [district])
 
-        col_table, col_chart = st.columns([2, 3])
+        col_table, col_chart = st.columns([2, 3], gap="medium", wrap=True)
 
         with col_table:
             winner_color = color_for(party_a)

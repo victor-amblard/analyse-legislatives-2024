@@ -29,10 +29,12 @@ openpyxl = "^3.1.4"
 pymc = ">=6,<7"
 
 
-[tool.poetry.group.dev.dependencies]
-black = {extras = ["jupyter"], version = "^24.8.0"}
-mypy = "^2.3"
-pytest = "^8.3"
+[dependency-groups]
+dev = [
+    "black[jupyter]>=24.8,<25",
+    "mypy>=2.3,<3",
+    "pytest>=8.3,<9",
+]
 
 [build-system]
 requires = ["poetry-core"]

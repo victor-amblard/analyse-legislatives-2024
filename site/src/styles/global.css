@@ -19,7 +19,8 @@
   --measure: 44rem;
 
   --font-body: ui-sans-serif, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-display: ui-serif, Georgia, 'Times New Roman', serif;
+  --font-display: 'Avenir Next', Avenir, 'Segoe UI Variable Display',
+    'Segoe UI', ui-sans-serif, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
 }
 
@@ -79,11 +80,12 @@ body {
   font-family: var(--font-display);
   font-weight: 600;
   line-height: 1.25;
+  letter-spacing: -0.012em;
   text-wrap: balance;
   margin-block: 2.4em 0.6em;
 }
 
-.prose h1 { font-size: 2.1rem; letter-spacing: -0.015em; }
+.prose h1 { font-size: 2.1rem; letter-spacing: -0.025em; }
 .prose h2 {
   font-size: 1.5rem;
   padding-block-end: 0.3em;
@@ -178,6 +180,34 @@ body {
 
 .prose tbody tr:last-child td { border-block-end: 0; }
 
+/* Même code couleur que le schéma « Flux de voix entre les deux tours ».
+   La couleur décrit le RÉSERVOIR D'ORIGINE, donc la ligne, pas le parti cible. */
+.prose .flow-matrix tbody tr:nth-child(1),
+.prose .flow-matrix tbody tr:nth-child(2) {
+  --flow-colour: #2a78d6;
+  --flow-tint: rgb(42 120 214 / 11%);
+}
+
+.prose .flow-matrix tbody tr:nth-child(3),
+.prose .flow-matrix tbody tr:nth-child(4) {
+  --flow-colour: #b56824;
+  --flow-tint: rgb(181 104 36 / 11%);
+}
+
+.prose .flow-matrix tbody tr:nth-child(5) {
+  --flow-colour: #7b818c;
+  --flow-tint: rgb(123 129 140 / 11%);
+}
+
+.prose .flow-matrix tbody tr:nth-child(-n + 5) td {
+  background: var(--flow-tint);
+}
+
+.prose .flow-matrix tbody tr:nth-child(-n + 5) td:first-child {
+  color: var(--flow-colour);
+  font-weight: 650;
+}
+
 /* KaTeX se pose à 1.21em, calibré sur les métriques de Computer Modern et sur un
    corps de texte plus petit que celui d'ici. Résultat avec nos 1.02rem : la
    formule sort à 1.23rem et l'indice à 0.7 x 1.23 = 0.86rem, soit 85 % du texte
@@ -263,6 +293,45 @@ html { scroll-behavior: smooth; }
   width: 100%;
   border: 1px solid var(--rule);
   border-radius: 6px;
+}
+
+/* Les schémas très denses deviennent illisibles si on les réduit à 350 px.
+   Sur petit écran, leur figure défile seule horizontalement ; la page, elle,
+   conserve sa largeur. */
+@media (max-width: 42rem) {
+  .prose figure:has(img[src*='simulation-pipeline']),
+  .prose figure:has(img[src*='simulation-steps']),
+  .prose figure:has(img[src*='preference-orderings']),
+  .prose figure:has(img[src*='prior-transfer-composition']),
+  .prose figure:has(img[src*='pollster-intervals']),
+  .prose figure:has(img[src*='pollster-vs-model']),
+  .prose figure:has(img[src*='seat-results']),
+  .prose figure:has(img[src*='conditioned-seat-results']),
+  .prose figure:has(img[src*='joint-predictive-region']),
+  .prose figure:has(img[src*='joint-seats']),
+  .prose figure:has(img[src*='kernel-sensitivity']),
+  .prose figure:has(img[src*='demobilisation-sensitivity']) {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .prose figure img:is(
+    [src*='simulation-pipeline'],
+    [src*='simulation-steps'],
+    [src*='preference-orderings'],
+    [src*='prior-transfer-composition'],
+    [src*='pollster-intervals'],
+    [src*='pollster-vs-model'],
+    [src*='seat-results'],
+    [src*='conditioned-seat-results'],
+    [src*='joint-predictive-region'],
+    [src*='joint-seats'],
+    [src*='kernel-sensitivity'],
+    [src*='demobilisation-sensitivity']
+  ) {
+    width: 42rem;
+    max-width: none;
+  }
 }
 
 .prose figcaption {

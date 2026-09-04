@@ -12,7 +12,8 @@ export const LOCALES: Locale[] = ['fr', 'en'];
 
 /** Racine du site pour une langue donnée. */
 export function pathFor(locale: Locale): string {
-  return locale === DEFAULT_LOCALE ? '/' : `/${locale}/`;
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  return locale === DEFAULT_LOCALE ? `${base}/` : `${base}/${locale}/`;
 }
 
 export const UI: Record<Locale, { name: string; switchTo: string; tocTitle: string }> = {

@@ -2,9 +2,9 @@
 
 ## Description
 Un modèle statistique qui projette le nombre de sièges du second tour des élections
-législatives de 2024 à partir principalement des **résultats du premier tour**, de la liste des
-candidats maintenus, et de la participation de quatre scrutins passés. Aucun sondage,
-aucun taux de report fixé à la main.
+législatives de 2024 à partir des **résultats du premier tour** et de la liste des
+candidats maintenus. Aucun sondage, aucun résultat d'élection passée, aucun taux de
+report fixé à la main.
 
 ### Mieux vaut être incertain que faussement précis
 
@@ -50,6 +50,7 @@ externes dans `data/external/` et la table prête à simuler dans
 ### L'application interactive
 
 ```bash
+python scripts/reproduce.py  # produit aussi artifacts/app/ pour le déploiement
 streamlit run app.py
 ```
 
@@ -61,6 +62,7 @@ Trois onglets : projection nationale, projection par circonscription, et méthod
 python scripts/prepare_data.py         # reconstruit data/processed/ depuis data/raw/
 python scripts/reproduce.py            # régénère les résultats publiés des trois variantes
 python scripts/reproduce.py --figures  # régénère aussi les analyses a priori et les figures
+python scripts/reproduce.py --figures --demobilisation-sensitivity  # recalcule la grille sur d
 python scripts/reproduce.py --figures --kernel-sensitivity  # recalcule aussi la grille (h, lambda), coûteuse
 python scripts/evaluate.py             # couverture et finesse face aux vrais résultats du 2nd tour
 python scripts/evaluate.py --model national   # même mesure sur une autre variante
@@ -120,12 +122,13 @@ départager.
 
 <img src="site/public/figures/preference-orderings.svg" alt="Ordre de préférence de report déclaré pour chacun des sept groupes d'origine." />
 
-**D'un ordre à une distribution.** La région compatible avec l'ordre déclaré n'est pas un
-triangle mais un cerf-volant, qui occupe un tiers du simplexe.
+**L'effet de la concentration.** Les densités théoriques d'un partage ordonné à
+deux destinations montrent comment une valeur plus faible de $\alpha$ favorise
+les reports les plus tranchés.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="site/public/figures/dirichlet-simplex-dark.svg" />
-  <img src="site/public/figures/dirichlet-simplex.svg" alt="Tirages du modèle sur le simplexe à trois destinations, à trois concentrations de Dirichlet." />
+  <img src="site/public/figures/dirichlet-simplex.svg" alt="Densités théoriques des taux de report ENS+ vers LR et RN+ pour alpha égal à 0,5, 0,75 et 1." />
 </picture>
 
 **Où vont les voix.** Flux médians a priori dans les duels `ENS+`/`RN+` : la largeur est

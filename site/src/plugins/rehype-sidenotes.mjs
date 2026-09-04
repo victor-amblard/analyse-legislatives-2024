@@ -2,8 +2,8 @@
  * Duplique les notes Markdown standard dans la marge, sans modifier leur source.
  *
  * Le rendu de notes de bas de page reste intact pour les écrans étroits et les
- * lecteurs sans CSS. Sur grand écran, une copie sémantique est insérée après le
- * paragraphe qui porte l'appel ; le CSS la fait flotter dans la marge droite.
+ * lecteurs sans CSS. Sur grand écran, une copie sémantique est insérée au niveau
+ * exact de l'appel ; le CSS la fait flotter dans la marge droite.
  */
 
 function clone(node) {
@@ -71,7 +71,10 @@ function collectDefinitions(node, definitions = new Map()) {
 function sidenote(id, number, definition, occurrence) {
   return {
     type: 'element',
-    tagName: 'aside',
+    // Un span peut rester dans le paragraphe qui porte l'appel. Une fois flotté,
+    // son bord supérieur s'aligne sur la ligne courante au lieu d'attendre la fin
+    // du paragraphe, comme le faisait l'ancien <aside> inséré après celui-ci.
+    tagName: 'span',
     properties: {
       className: ['sidenote'],
       id: `sidenote-${id}-${occurrence}`,
@@ -104,24 +107,41 @@ function decorateReference(reference, number) {
 
 function transformContainer(node, definitions, occurrences) {
   if (!node.children) return;
-  const children = [];
   for (const child of node.children) {
     transformContainer(child, definitions, occurrences);
-    children.push(child);
     if (!isElement(child, 'p')) continue;
 
     for (const { id, node: reference } of findReferences(child)) {
       const definition = definitions.get(id);
       if (!definition) continue;
       const number = String(reference.children?.[0]?.value ?? '');
-      const parent = findParent(child, reference);
-      if (parent?.children) parent.children.push(decorateReference(reference, number));
+      const referenceParent = findParent(child, reference);
+      const paragraphChild = directChildContaining(child, reference);
+      if (!referenceParent?.children || !paragraphChild) continue;
+
+      const marker = decorateReference(reference, number);
+      insertAfter(referenceParent, reference, marker);
       const occurrence = (occurrences.get(id) ?? 0) + 1;
       occurrences.set(id, occurrence);
-      children.push(sidenote(id, number, definition, occurrence));
+      insertAfter(
+        child,
+        referenceParent === child ? marker : paragraphChild,
+        sidenote(id, number, definition, occurrence),
+      );
     }
   }
-  node.children = children;
+}
+
+function insertAfter(parent, target, inserted) {
+  const index = parent.children?.indexOf(target) ?? -1;
+  if (index >= 0) parent.children.splice(index + 1, 0, inserted);
+}
+
+function directChildContaining(root, target) {
+  for (const child of root.children ?? []) {
+    if (child === target || findParent(child, target)) return child;
+  }
+  return null;
 }
 
 function findParent(root, target) {
