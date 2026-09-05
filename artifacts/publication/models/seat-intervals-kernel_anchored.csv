@@ -1,8 +1,8 @@
 model,party,actual,p05,p25,median,p75,p95
 kernel_anchored,DIV,10.0,7.0,9.0,10.0,10.0,11.0
-kernel_anchored,NFP+,181.0,173.0,190.0,201.0,212.0,227.0
+kernel_anchored,NFP+,181.0,172.0,190.0,201.0,211.0,227.0
 kernel_anchored,DVG,12.0,11.0,12.0,13.0,13.0,14.0
-kernel_anchored,ENS+,165.0,143.0,155.0,163.0,170.0,179.0
+kernel_anchored,ENS+,165.0,143.0,155.0,163.0,170.0,180.0
 kernel_anchored,LR,39.0,25.0,30.0,34.0,37.0,42.0
 kernel_anchored,DVD,27.0,20.0,22.0,24.0,26.0,29.0
-kernel_anchored,RN+,143.0,95.0,118.0,134.0,150.0,174.0
+kernel_anchored,RN+,143.0,95.95,118.0,133.0,150.0,173.04999999999995

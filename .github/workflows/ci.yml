@@ -26,6 +26,7 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --locked --group dev
+      - run: uv run ruff check src scripts tests app.py
       - run: uv run black --check src scripts tests app.py
       - name: Check Streamlit app
         run: >-

@@ -24,7 +24,11 @@ from analyse_legislatives.app_artifacts import (
     AppArtifactError,
     load_app_artifact,
 )
-from analyse_legislatives.data import FirstRoundData, load_full_results as _load
+from analyse_legislatives.data import (
+    FirstRoundData,
+    load_full_results as _load,
+    load_second_round_results as _load_second_round,
+)
 from analyse_legislatives.config import (
     APP_ARTIFACT_DIR,
     DEFAULT_DIRICHLET_ALPHA_BOUNDS,
@@ -64,6 +68,11 @@ def is_dark() -> bool:
 @st.cache_data(show_spinner="Chargement des résultats du 1er tour…")
 def first_round_data() -> FirstRoundData:
     return _load()
+
+
+@st.cache_data(show_spinner="Chargement des résultats du 2nd tour…")
+def second_round_data():
+    return _load_second_round()
 
 
 @st.cache_data(show_spinner=False)
@@ -136,6 +145,7 @@ st.caption(
     "méthodologie)."
 )
 
+dark_theme = is_dark()
 first_round = first_round_data()
 artifact_ids = tuple(d.circonscription.id for d in first_round.districts)
 digest = config_digest()
@@ -205,7 +215,7 @@ with tab_national:
         )
         non_expressed_event = st.altair_chart(
             render_seats_vs_non_expressed_chart(
-                conditional_prediction, non_expressed_selection
+                conditional_prediction, non_expressed_selection, dark=dark_theme
             ),
             width="stretch",
             on_select="rerun",
@@ -348,6 +358,12 @@ with tab_circo:
                 party_left, party_right = sorted(
                     [party_a, party_b], key=SPECTRUM_LABELS.index
                 )
+                observed = second_round_data()[id_circo]
+                observed_votes = {
+                    party_left: observed.votes.get(party_left, 0),
+                    party_right: observed.votes.get(party_right, 0),
+                    NON_EXPRIMES: observed.non_exprimes,
+                }
                 st.altair_chart(
                     render_duel_charts(
                         circo_df,
@@ -357,6 +373,8 @@ with tab_circo:
                         party_b,
                         f"{party_left} / {party_right} / Non exprimé — {choice}",
                         f"Écart {party_a} vs {party_b} — {choice}",
+                        actual_votes=observed_votes,
+                        dark=dark_theme,
                     ),
                     width="stretch",
                     key="duel_margin_linked",
@@ -435,4 +453,5 @@ if tab_methodo.open:
             dirichlet_alpha_bounds=DEFAULT_DIRICHLET_ALPHA_BOUNDS,
             n_simus=DEFAULT_N_SIMUS,
             seed=DEFAULT_SEED,
+            dark=dark_theme,
         )

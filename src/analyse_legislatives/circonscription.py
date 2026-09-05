@@ -1,16 +1,13 @@
 """Circonscriptions, résultats du 1er tour et prédictions du 2nd."""
 
-from collections import Counter
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import numpy as np
 
 from analyse_legislatives.parties import (
     NON_EXPRIMES,
-    FAMILIES,
     Destination,
-    PoliticalFamily,
 )
 
 
@@ -119,19 +116,6 @@ class CirconscriptionPrediction:
         }
         parties = list(contenders)
         return parties[int(np.argmax(list(contenders.values())))]
-
-    def get_seats(self) -> dict[PoliticalFamily, int]:
-        winner = self.get_winner()
-        return {party: 1 if party == winner else 0 for party in FAMILIES}
-
-    @staticmethod
-    def agregate_by_party(
-        full_predictions: Iterable["CirconscriptionPrediction"],
-    ) -> dict[PoliticalFamily, int]:
-        count_seats: Counter[PoliticalFamily] = Counter()
-        for predicted_result in full_predictions:
-            count_seats.update(predicted_result.get_seats())
-        return dict(count_seats)
 
     def __str__(self):
         lines = [

@@ -11,6 +11,9 @@ points d'entrée principaux :
   change réellement ;
 - `local_tilt_effect.py` isole la localisation du seul tilt ;
 - `ordering_sensitivity.py` mesure ce que coûterait un ordre de préférence TOTAL ;
+- `parameter_influence.py` mesure comment les déciles extrêmes de chaque
+  paramètre déplacent la médiane et la largeur de l'intervalle de sièges ; il
+  conserve aussi l'indice de sensibilité du premier ordre comme diagnostic ;
 - `tilt_sensitivity.py` fait varier les bornes du prior de tilt ;
 - `first_round_variogram.py` teste la structure spatiale des écarts avec le SEUL
   premier tour — c'est lui qui justifie le noyau départemental sans rien devoir au

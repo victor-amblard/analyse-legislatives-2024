@@ -1,0 +1,82 @@
+parametre,colonne,decile,p05,p50,p95
+Concentration α,alpha,0,87.45,120.25,155.0
+Concentration α,alpha,1,88.42500000000001,122.5,158.0
+Concentration α,alpha,2,89.5,126.0,160.54999999999995
+Concentration α,alpha,3,92.5,127.5,167.54999999999995
+Concentration α,alpha,4,98.42500000000001,133.25,169.52499999999998
+Concentration α,alpha,5,100.5,134.5,170.54999999999995
+Concentration α,alpha,6,100.5,138.0,171.04999999999995
+Concentration α,alpha,7,106.975,141.25,180.5
+Concentration α,alpha,8,108.95,146.0,186.02499999999998
+Concentration α,alpha,9,110.0,149.25,186.02499999999998
+Corrélation département ρd,department_correlation,0,91.975,134.5,174.5
+Corrélation département ρd,department_correlation,1,97.975,134.0,172.5
+Corrélation département ρd,department_correlation,2,95.475,133.5,175.52499999999998
+Corrélation département ρd,department_correlation,3,96.0,132.0,176.02499999999998
+Corrélation département ρd,department_correlation,4,96.975,132.5,171.54999999999995
+Corrélation département ρd,department_correlation,5,96.95,135.5,173.5
+Corrélation département ρd,department_correlation,6,95.475,133.25,175.54999999999995
+Corrélation département ρd,department_correlation,7,97.0,134.0,171.54999999999995
+Corrélation département ρd,department_correlation,8,96.5,132.5,174.04999999999995
+Corrélation département ρd,department_correlation,9,92.95,134.5,171.02499999999998
+Corrélation région ρr,region_correlation,0,97.475,135.5,176.04999999999995
+Corrélation région ρr,region_correlation,1,98.975,133.0,174.02499999999998
+Corrélation région ρr,region_correlation,2,96.475,132.75,174.02499999999998
+Corrélation région ρr,region_correlation,3,95.5,134.0,175.57499999999993
+Corrélation région ρr,region_correlation,4,93.0,133.0,171.52499999999998
+Corrélation région ρr,region_correlation,5,95.45,134.5,175.07499999999993
+Corrélation région ρr,region_correlation,6,98.5,133.25,174.02499999999998
+Corrélation région ρr,region_correlation,7,97.0,134.25,172.04999999999995
+Corrélation région ρr,region_correlation,8,94.475,133.0,175.04999999999995
+Corrélation région ρr,region_correlation,9,94.975,133.75,173.5
+Démobilisation d,qualified_demobilisation,0,99.975,136.5,176.04999999999995
+Démobilisation d,qualified_demobilisation,1,100.95,134.75,176.02499999999998
+Démobilisation d,qualified_demobilisation,2,99.475,136.75,174.5
+Démobilisation d,qualified_demobilisation,3,101.975,137.0,177.52499999999998
+Démobilisation d,qualified_demobilisation,4,96.975,134.5,172.52499999999998
+Démobilisation d,qualified_demobilisation,5,98.92500000000001,136.0,177.52499999999998
+Démobilisation d,qualified_demobilisation,6,95.0,131.75,175.04999999999995
+Démobilisation d,qualified_demobilisation,7,93.5,133.5,171.02499999999998
+Démobilisation d,qualified_demobilisation,8,93.475,129.0,168.0999999999999
+Démobilisation d,qualified_demobilisation,9,86.92500000000001,126.0,167.0999999999999
+Dérive nationale δnat,delta_nat,0,86.0,121.75,165.52499999999998
+Dérive nationale δnat,delta_nat,1,97.475,130.0,169.04999999999995
+Dérive nationale δnat,delta_nat,2,99.92500000000001,133.0,172.54999999999995
+Dérive nationale δnat,delta_nat,3,99.5,135.0,176.0
+Dérive nationale δnat,delta_nat,4,100.475,135.5,170.52499999999998
+Dérive nationale δnat,delta_nat,5,100.5,136.5,174.02499999999998
+Dérive nationale δnat,delta_nat,6,98.975,136.5,173.02499999999998
+Dérive nationale δnat,delta_nat,7,95.475,136.0,177.54999999999995
+Dérive nationale δnat,delta_nat,8,96.475,135.0,176.02499999999998
+Dérive nationale δnat,delta_nat,9,90.975,132.25,179.02499999999998
+Mélange national λ,mixing_weight,0,106.475,134.5,161.52499999999998
+Mélange national λ,mixing_weight,1,103.475,132.5,164.52499999999998
+Mélange national λ,mixing_weight,2,101.5,135.0,171.54999999999995
+Mélange national λ,mixing_weight,3,101.45,132.0,171.0
+Mélange national λ,mixing_weight,4,97.45,133.5,172.0
+Mélange national λ,mixing_weight,5,94.975,135.5,175.5
+Mélange national λ,mixing_weight,6,93.95,133.5,177.54999999999995
+Mélange national λ,mixing_weight,7,92.0,133.5,177.02499999999998
+Mélange national λ,mixing_weight,8,90.42500000000001,133.5,178.57499999999993
+Mélange national λ,mixing_weight,9,84.975,131.25,185.14999999999986
+Tilt τ,tilt,0,95.0,132.25,174.52499999999998
+Tilt τ,tilt,1,96.475,134.5,173.52499999999998
+Tilt τ,tilt,2,96.975,133.5,174.5
+Tilt τ,tilt,3,95.45,134.0,171.52499999999998
+Tilt τ,tilt,4,94.5,132.5,170.04999999999995
+Tilt τ,tilt,5,93.975,134.0,175.02499999999998
+Tilt τ,tilt,6,97.475,133.5,177.52499999999998
+Tilt τ,tilt,7,96.45,134.5,173.0
+Tilt τ,tilt,8,95.95,133.0,174.5
+Tilt τ,tilt,9,95.45,134.0,176.0
+toutes,toutes,-1,96.0,133.5,174.0
+Écart local δ0101,delta_district,0,93.0,134.25,172.5
+Écart local δ0101,delta_district,1,95.95,134.0,175.0
+Écart local δ0101,delta_district,2,96.95,133.0,177.54999999999995
+Écart local δ0101,delta_district,3,97.475,132.5,176.04999999999995
+Écart local δ0101,delta_district,4,93.95,133.0,172.52499999999998
+Écart local δ0101,delta_district,5,96.5,133.5,174.02499999999998
+Écart local δ0101,delta_district,6,96.95,134.0,172.52499999999998
+Écart local δ0101,delta_district,7,97.95,137.0,173.52499999999998
+Écart local δ0101,delta_district,8,94.0,133.5,175.0
+Écart local δ0101,delta_district,9,96.95,132.75,170.52499999999998

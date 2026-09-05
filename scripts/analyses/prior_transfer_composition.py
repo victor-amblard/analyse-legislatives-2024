@@ -31,6 +31,7 @@ Usage :
 import argparse
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -187,18 +188,15 @@ def main() -> None:
     print("\nLignes de report a priori, restreintes et pondérées par les voix :")
     for row in summary.iter_rows(named=True):
         print(
-            "  %-12s %-5s -> %-14s médiane %5.1f %%  IC90 [%4.1f ; %4.1f]"
-            % (
-                row["duel"],
-                row["source"],
-                row["destination"],
-                100 * row["mediane"],
-                100 * row["q05"],
-                100 * row["q95"],
-            )
+            f"  {row['duel']:<12} {row['source']:<5} -> {row['destination']:<14}"
+            f" médiane {100 * row['mediane']:5.1f} %"
+            f"  IC90 [{100 * row['q05']:4.1f} ; {100 * row['q95']:4.1f}]"
         )
 
-    chart_options = {
+    # Hétérogène (str et dict) : sans annotation, l'inférence en fait un
+    # `dict[str, Collection[str]]` que `**` ne peut plus rapprocher des
+    # paramètres de `chart`.
+    chart_options: dict[str, Any] = {
         "models": ["prior"],
         "display_labels": {NON_EXPRIMES: "Non exprimés"},
         "axis_title": "Part des électeurs du 1er tour",

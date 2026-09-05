@@ -1,7 +1,8 @@
 import sys
 import time
 from contextlib import contextmanager
-from typing import Callable, TextIO
+from typing import TextIO
+from collections.abc import Callable
 
 BAR_WIDTH = 28
 

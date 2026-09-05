@@ -7,10 +7,11 @@ légères.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 import json
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 
@@ -79,7 +80,7 @@ def write_app_artifact(
 
     manifest = {
         "schema_version": SCHEMA_VERSION,
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "model": model,
         "seed": seed,
         "n_simulations": int(values.shape[0]),

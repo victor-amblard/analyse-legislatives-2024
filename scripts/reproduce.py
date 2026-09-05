@@ -18,7 +18,7 @@ import json
 import subprocess
 import sys
 from collections.abc import Sequence
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 
 from analyse_legislatives.config import (
@@ -146,6 +146,7 @@ def main() -> None:
         if args.kernel_sensitivity:
             steps.append("sensibilité au noyau (rho, lambda)")
         steps.append("exemple de simulation 0101")
+        steps.append("animation de 20 000 simulations en 0101")
         steps.append("figures")
     done = 0
 
@@ -232,12 +233,22 @@ def main() -> None:
             ]
         )
         done += 1
+        announce(done, len(steps), "animation de 20 000 simulations en 0101")
+        stream(
+            [
+                sys.executable,
+                "scripts/analyses/district_simulation_animation.py",
+                "--seed",
+                str(DEFAULT_SEED),
+            ]
+        )
+        done += 1
         announce(done, len(steps), "figures")
         stream([sys.executable, "-m", "analyse_legislatives.publication.figures"])
 
     raw_config = MODEL_CONFIG_PATH.read_bytes()
     manifest = {
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "python": sys.version,
         "seed": DEFAULT_SEED,
         "n_simulations": args.n_simus,

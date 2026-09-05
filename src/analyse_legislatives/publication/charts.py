@@ -15,8 +15,16 @@ from scipy.special import expit, logit
 from scipy.stats import beta, norm
 
 from analyse_legislatives.config import (
+    DEFAULT_DEPARTMENT_CORRELATION_PRIOR,
+    DEFAULT_DIRICHLET_ALPHA_BOUNDS,
+    DEFAULT_DISTRICT_EXPRESSED_BAND_PTS,
     DEFAULT_EXPECTED_EXPRESSED_CHANGE_PTS,
+    DEFAULT_MIXING_PRIOR,
     DEFAULT_NATIONAL_EXPRESSED_BAND_PTS,
+    DEFAULT_NON_EXPRESSED_RETENTION_PRIOR,
+    DEFAULT_NON_EXPRESSED_TILT_BOUNDS,
+    DEFAULT_QUALIFIED_DEMOBILISATION_PRIOR,
+    DEFAULT_REGION_CORRELATION_PRIOR,
     DEFAULT_SEED,
     PROJECT_ROOT,
 )
@@ -38,6 +46,24 @@ MODEL_COLOURS = {
 DELTA_EXAMPLE_DRAWS = 20_000
 DIRICHLET_SPLIT_ALPHAS = (0.5, 0.75, 1.0)
 TILT_EXAMPLE_VALUES = (-1.0, 0.0, 1.0)
+
+# Correpsond aux paramètres du billet
+SIMULATION_EXAMPLE_DRAWS = {
+    "Concentration α": 0.70,
+    "Démobilisation d": 0.04,
+    "Rétention des non-exprimés": 0.90,
+    "Tilt τ": 0.0,
+}
+ANCHORED_EXAMPLE_DRAWS = {
+    "Concentration α": 0.70,
+    "Démobilisation d": 0.04,
+    "Mélange national λ": 0.60,
+    "Tilt τ": 0.0,
+    "Dérive nationale δnat": 0.08,
+    "Écart local δ0101": -0.04,
+    "Corrélation département ρd": 0.70,
+    "Corrélation région ρr": 0.30,
+}
 
 POLLSTER_PARTY_LABELS = {
     "NFP + DVG": "NFP+ et DVG",
@@ -1626,11 +1652,6 @@ def win_probability_calibration_chart(
     accent = "#3987e5" if dark else "#2a78d6"
     muted = "#aeb4c0" if dark else "#5a616e"
 
-    diagonal = (
-        alt.Chart(pd.DataFrame({"x": [0, 1], "y": [0, 1]}))
-        .mark_line(strokeDash=[3, 3], color=muted, strokeWidth=1.3)
-        .encode(x="x:Q", y="y:Q")
-    )
     axis_pct = alt.Axis(format=".0%", values=[0, 0.25, 0.5, 0.75, 1])
     # Graduations tous les 10 % en x : les points sont trop resserrés vers les
     # extrêmes pour se situer précisément avec seulement les repères de 25 %.
@@ -1641,19 +1662,27 @@ def win_probability_calibration_chart(
         values=[i / 20 for i in range(21)],
         labelExpr="datum.value % 0.2 < 0.001 ? format(datum.value, '.0%') : ''",
     )
+    x_title = "Probabilité de victoire prédite"
+    y_title = "Fréquence réalisée"
+    x_scale = alt.Scale(domain=[0, 1])
+    y_scale = alt.Scale(domain=[0, 1])
+    # Chaque couche superposée déclare le MÊME titre/axe/échelle, même quand
+    # son champ diffère (`x`/`y` pour la diagonale, `ic95_bas`/`ic95_haut`
+    # pour la bande) : Vega-Lite fusionne les axes d'un layered chart, et deux
+    # couches en désaccord sur le titre le concatènent (« x, predit_moyen »)
+    # plutôt que d'en choisir un — au lieu de « axis=None » sur les couches en
+    # trop, qui supprime l'axe fusionné en entier pour toutes les couches.
+    diagonal = (
+        alt.Chart(pd.DataFrame({"x": [0, 1], "y": [0, 1]}))
+        .mark_line(strokeDash=[3, 3], color=muted, strokeWidth=1.3)
+        .encode(
+            x=alt.X("x:Q", title=x_title, axis=axis_pct_x, scale=x_scale),
+            y=alt.Y("y:Q", title=y_title, axis=axis_pct, scale=y_scale),
+        )
+    )
     base = alt.Chart(data).encode(
-        x=alt.X(
-            "predit_moyen:Q",
-            title="Probabilité de victoire prédite",
-            axis=axis_pct_x,
-            scale=alt.Scale(domain=[0, 1]),
-        ),
-        y=alt.Y(
-            "realise:Q",
-            title="Fréquence réalisée",
-            axis=axis_pct,
-            scale=alt.Scale(domain=[0, 1]),
-        ),
+        x=alt.X("predit_moyen:Q", title=x_title, axis=axis_pct_x, scale=x_scale),
+        y=alt.Y("realise:Q", title=y_title, axis=axis_pct, scale=y_scale),
     )
     tooltip = [
         alt.Tooltip("predit_min:Q", title="Prédit, borne basse", format=".0%"),
@@ -1663,19 +1692,37 @@ def win_probability_calibration_chart(
         alt.Tooltip("ic95_haut:Q", title="IC 95 %, haut", format=".1%"),
         alt.Tooltip("n:Q", title="Cellules dans la tranche"),
     ]
-    error_bars = base.mark_rule(color=accent, strokeWidth=1.4, opacity=0.55).encode(
-        y="ic95_bas:Q", y2="ic95_haut:Q", tooltip=tooltip
-    )
-    points = base.mark_circle(color=accent, opacity=0.92).encode(
-        size=alt.Size(
-            "n:Q",
-            title="Cellules",
-            scale=alt.Scale(range=[40, 420]),
-            legend=alt.Legend(symbolFillColor=accent, format="d"),
-        ),
+    # Pas de canal `order` ici : sur un mark_area/mark_line, une valeur
+    # quantitative posée sur `order` fait éclater la bande en un segment
+    # disjoint par point plutôt que de la trier — `predit_moyen` est déjà
+    # croissant dans le CSV (tranches construites dans cet ordre), ce qui
+    # suffit à connecter les points correctement.
+    band = base.mark_area(color=accent, opacity=0.22, interpolate="monotone").encode(
+        y=alt.Y("ic95_bas:Q", title=y_title, axis=axis_pct, scale=y_scale),
+        y2="ic95_haut:Q",
         tooltip=tooltip,
     )
-    chart = (diagonal + error_bars + points).properties(
+    lower = base.mark_line(
+        color=accent, strokeWidth=1.6, opacity=0.85, interpolate="monotone"
+    ).encode(
+        y=alt.Y("ic95_bas:Q", title=y_title, axis=axis_pct, scale=y_scale),
+        tooltip=tooltip,
+    )
+    upper = base.mark_line(
+        color=accent, strokeWidth=1.6, opacity=0.85, interpolate="monotone"
+    ).encode(
+        y=alt.Y("ic95_haut:Q", title=y_title, axis=axis_pct, scale=y_scale),
+        tooltip=tooltip,
+    )
+    # Repères ponctuels à chaque tranche, par-dessus la bande interpolée : elle
+    # lisse entre les tranches, ces traits rappellent où sont les vraies
+    # observations.
+    error_bars = base.mark_rule(color=accent, strokeWidth=1.4, opacity=0.55).encode(
+        y=alt.Y("ic95_bas:Q", title=y_title, axis=axis_pct, scale=y_scale),
+        y2="ic95_haut:Q",
+        tooltip=tooltip,
+    )
+    chart = (diagonal + band + lower + upper + error_bars).properties(
         width=420,
         height=420,
         title={
@@ -1683,6 +1730,854 @@ def win_probability_calibration_chart(
             "subtitle": [
                 f"Modèle {model} · circonscriptions et partis qualifiés,",
                 "déciles à effectif égal, IC 95 % de Wilson par tranche",
+            ],
+        },
+    )
+    return _style(chart, dark=dark)
+
+
+def simulation_parameter_draws_chart(*, dark: bool = False) -> alt.Chart:
+    """Four priors and the illustrative draw used in the 0101 walkthrough."""
+    panels = [
+        (
+            "Concentration α",
+            "Flux 1",
+            np.linspace(*DEFAULT_DIRICHLET_ALPHA_BOUNDS, 160),
+            lambda x: 1
+            / (
+                x
+                * np.log(
+                    DEFAULT_DIRICHLET_ALPHA_BOUNDS[1]
+                    / DEFAULT_DIRICHLET_ALPHA_BOUNDS[0]
+                )
+            ),
+            ".2f",
+        ),
+        (
+            "Démobilisation d",
+            "Flux 2",
+            np.linspace(0.0001, 0.25, 160),
+            lambda x: beta.pdf(x, *DEFAULT_QUALIFIED_DEMOBILISATION_PRIOR),
+            ".0%",
+        ),
+        (
+            "Rétention des non-exprimés",
+            "Flux 3",
+            np.linspace(0.45, 0.9999, 160),
+            lambda x: beta.pdf(x, *DEFAULT_NON_EXPRESSED_RETENTION_PRIOR),
+            ".0%",
+        ),
+        (
+            "Tilt τ",
+            "Flux 3",
+            np.linspace(*DEFAULT_NON_EXPRESSED_TILT_BOUNDS, 160),
+            lambda x: np.full_like(x, 0.5),
+            ".1f",
+        ),
+    ]
+    rows: list[dict[str, object]] = []
+    # Le repère orange vaut UNE ligne par panneau : le brancher sur la grille de
+    # densité en dessinait 160 copies exactement superposées (voir
+    # `anchored_parameter_draws_chart`).
+    markers: list[dict] = []
+    for order, (parameter, flux, values, density, value_format) in enumerate(panels):
+        selected = SIMULATION_EXAMPLE_DRAWS[parameter]
+        rows.extend(
+            {
+                "parameter": parameter,
+                "flux": flux,
+                "order": order,
+                "x": float(x),
+                "density": float(y),
+            }
+            for x, y in zip(values, density(values))
+        )
+        markers.append(
+            {
+                "parameter": parameter,
+                "selected": selected,
+                "selected_label": format(selected, value_format),
+            }
+        )
+
+    data = pl.DataFrame(rows)
+    marker_data = pl.DataFrame(markers)
+    accent = "#e49a55" if dark else "#b56824"
+    muted = "#aeb4c0" if dark else "#7b818c"
+    panel_charts = []
+    for parameter, flux, *_ in panels:
+        panel_data = data.filter(pl.col("parameter") == parameter)
+        panel_marker = marker_data.filter(pl.col("parameter") == parameter)
+        base = alt.Chart(panel_data).encode(
+            x=alt.X(
+                "x:Q",
+                title=flux,
+                axis=alt.Axis(tickCount=3, grid=False, titlePadding=8),
+            ),
+            y=alt.Y("density:Q", title=None, axis=None),
+        )
+        panel_charts.append(
+            alt.layer(
+                base.mark_area(color=muted, opacity=0.16),
+                base.mark_line(color=muted, strokeWidth=1.5),
+                alt.Chart(panel_marker)
+                .mark_rule(color=accent, strokeWidth=2)
+                .encode(x="selected:Q"),
+                alt.Chart(panel_marker)
+                .mark_point(
+                    color=accent,
+                    filled=True,
+                    size=55,
+                    stroke="white",
+                    strokeWidth=1,
+                )
+                .encode(x="selected:Q", y=alt.value(8)),
+                alt.Chart(panel_marker)
+                .mark_text(
+                    color=accent,
+                    align="center",
+                    baseline="bottom",
+                    dy=-4,
+                    fontWeight=500,
+                )
+                .encode(x="selected:Q", y=alt.value(8), text="selected_label:N"),
+            ).properties(
+                width=128,
+                height=72,
+                title=alt.TitleParams(
+                    parameter, anchor="middle", fontSize=11, fontWeight=400
+                ),
+            )
+        )
+
+    chart = (
+        alt.hconcat(*panel_charts, spacing=14)
+        .properties(
+            title=alt.TitleParams(
+                "Un tirage parmi les valeurs possibles",
+                subtitle="La courbe représente le prior ; le repère orange, la valeur retenue dans l’exemple.",
+                fontWeight=500,
+            )
+        )
+        .resolve_scale(x="independent", y="independent")
+    )
+    return _style(chart, dark=dark)
+
+
+def _anchored_prior_panel_groups():
+    """Panel specifications shared by the two prior-summary figures."""
+    districts = load_full_results().districts
+    shares_and_weights = []
+    for district in districts:
+        expressed = sum(district.competing_parties_results.values()) + sum(
+            district.eliminated_parties_results.values()
+        )
+        registered = expressed + district.non_expressed
+        shares_and_weights.append((expressed / registered, registered))
+    shares = np.array([share for share, _ in shares_and_weights])
+    weights = np.array([weight for _, weight in shares_and_weights])
+    national_share = float(weights @ shares / weights.sum())
+    centre = national_share + DEFAULT_EXPECTED_EXPRESSED_CHANGE_PTS / 100
+
+    def logit_sigma(band_points: float) -> float:
+        anchor = logit(centre)
+        band = band_points / 100
+        distance = min(
+            abs(logit(centre - band) - anchor),
+            abs(logit(centre + band) - anchor),
+        )
+        return float(distance / norm.ppf(0.95))
+
+    national_sigma = logit_sigma(DEFAULT_NATIONAL_EXPRESSED_BAND_PTS)
+    district_sigma = logit_sigma(DEFAULT_DISTRICT_EXPRESSED_BAND_PTS)
+    shared_panels = [
+        (
+            "Concentration α",
+            np.linspace(*DEFAULT_DIRICHLET_ALPHA_BOUNDS, 160),
+            lambda x: 1
+            / (
+                x
+                * np.log(
+                    DEFAULT_DIRICHLET_ALPHA_BOUNDS[1]
+                    / DEFAULT_DIRICHLET_ALPHA_BOUNDS[0]
+                )
+            ),
+            ".2f",
+        ),
+        (
+            "Démobilisation d",
+            np.linspace(0.0001, 0.25, 160),
+            lambda x: beta.pdf(x, *DEFAULT_QUALIFIED_DEMOBILISATION_PRIOR),
+            ".0%",
+        ),
+        (
+            "Tilt τ",
+            np.linspace(*DEFAULT_NON_EXPRESSED_TILT_BOUNDS, 160),
+            lambda x: np.full_like(x, 0.5),
+            ".1f",
+        ),
+    ]
+    anchoring_panels = [
+        (
+            "Dérive nationale δnat",
+            np.linspace(-3 * national_sigma, 3 * national_sigma, 160),
+            lambda x: norm.pdf(x, 0, national_sigma),
+            ".2f",
+        ),
+        (
+            "Écart local δ0101",
+            np.linspace(-3 * district_sigma, 3 * district_sigma, 160),
+            lambda x: norm.pdf(x, 0, district_sigma),
+            ".2f",
+        ),
+    ]
+    local_panels = [
+        (
+            "Mélange national λ",
+            np.linspace(0.0001, 0.9999, 160),
+            lambda x: beta.pdf(x, *DEFAULT_MIXING_PRIOR),
+            ".2f",
+        ),
+        (
+            "Corrélation département ρd",
+            np.linspace(0.0001, 0.9999, 160),
+            lambda x: beta.pdf(x, *DEFAULT_DEPARTMENT_CORRELATION_PRIOR),
+            ".2f",
+        ),
+        (
+            "Corrélation région ρr",
+            np.linspace(0.0001, 0.9999, 160),
+            lambda x: beta.pdf(x, *DEFAULT_REGION_CORRELATION_PRIOR),
+            ".2f",
+        ),
+    ]
+    return shared_panels, anchoring_panels, local_panels
+
+
+def anchored_parameter_draws_chart(*, dark: bool = False) -> alt.Chart:
+    """Priors and illustrative values for the locally anchored model."""
+    shared_panels, anchoring_panels, local_panels = _anchored_prior_panel_groups()
+
+    accent = "#e49a55" if dark else "#b56824"
+    muted = "#aeb4c0" if dark else "#7b818c"
+
+    def panel_chart(panel):
+        parameter, values, density, value_format = panel
+        selected = ANCHORED_EXAMPLE_DRAWS[parameter]
+        data = pl.DataFrame({"x": values, "density": density(values)})
+        # UNE ligne, pas une par point de la grille : le repère est un seul
+        # marqueur. Le lier à `data` en dessinait 160 exemplaires superposés —
+        # invisible à l'écran, mais l'export SVG les écrivait tous (922 Ko).
+        marker = pl.DataFrame(
+            {
+                "selected": [selected],
+                "selected_label": [format(selected, value_format)],
+            }
+        )
+        base = alt.Chart(data).encode(
+            x=alt.X("x:Q", title=None, axis=alt.Axis(tickCount=3, grid=False)),
+            y=alt.Y("density:Q", title=None, axis=None),
+        )
+        return alt.layer(
+            base.mark_area(color=muted, opacity=0.16),
+            base.mark_line(color=muted, strokeWidth=1.5),
+            alt.Chart(marker)
+            .mark_rule(color=accent, strokeWidth=2)
+            .encode(x="selected:Q"),
+            alt.Chart(marker)
+            .mark_point(
+                color=accent, filled=True, size=55, stroke="white", strokeWidth=1
+            )
+            .encode(x="selected:Q", y=alt.value(8)),
+            alt.Chart(marker)
+            .mark_text(
+                color=accent,
+                align="center",
+                baseline="bottom",
+                dy=-4,
+                fontWeight=500,
+            )
+            .encode(x="selected:Q", y=alt.value(8), text="selected_label:N"),
+        ).properties(
+            width=128,
+            height=72,
+            title=alt.TitleParams(
+                parameter, anchor="middle", fontSize=11, fontWeight=400
+            ),
+        )
+
+    shared = alt.hconcat(
+        *(panel_chart(panel) for panel in shared_panels), spacing=14
+    ).properties(
+        title=alt.TitleParams(
+            "Paramètres partagés avec le modèle national",
+            fontSize=11,
+            fontWeight=500,
+        )
+    )
+    anchoring = alt.hconcat(
+        *(panel_chart(panel) for panel in anchoring_panels), spacing=14
+    ).properties(
+        title=alt.TitleParams(
+            "Paramètres d’ancrage de l’abstention", fontSize=11, fontWeight=500
+        )
+    )
+    local = alt.hconcat(
+        *(panel_chart(panel) for panel in local_panels), spacing=14
+    ).properties(
+        title=alt.TitleParams("Paramètres locaux", fontSize=11, fontWeight=500)
+    )
+    chart = alt.vconcat(shared, anchoring, local, spacing=20).properties(
+        title=alt.TitleParams(
+            "Un tirage du modèle local ancré",
+            subtitle="Les courbes représentent les priors ; les repères orange, les valeurs de l’exemple.",
+            fontWeight=500,
+        )
+    )
+    return _style(chart, dark=dark)
+
+
+def _prior_uniform_comparison(panel) -> pl.DataFrame:
+    """Un prior et sa référence uniforme, sur une grille commune."""
+    parameter, original_values, density, _ = panel
+    if parameter == "Démobilisation d":
+        # Bornes NATURELLES d'une proportion — pas la fenêtre [0, 0.25]
+        # utilisée ailleurs pour zoomer sur la masse du prior. Comparer à
+        # l'uniforme sur cette fenêtre étroite aurait été arbitraire ; [0, 1]
+        # est le seul support qui ne dépend d'aucun choix de cadrage.
+        values = np.linspace(0.0001, 0.9999, 241)
+    else:
+        # Tilt τ compris : ses bornes déclarées (`non_expressed_tilt_uniform`,
+        # ±1) SONT son support réel, pas une fenêtre de confort — les élargir
+        # artificiellement ferait apparaître un écart à l'uniforme qui
+        # n'existe pas (le prior choisi EST l'uniforme sur ce support).
+        values = np.linspace(original_values[0], original_values[-1], 241)
+    prior = density(values)
+    reference = np.full_like(values, 1 / (values[-1] - values[0]))
+    return pl.DataFrame(
+        {
+            "x": values,
+            "prior": prior,
+            "reference": reference,
+            "lower": np.minimum(prior, reference),
+            "upper": np.maximum(prior, reference),
+            "hatch": np.arange(len(values)) % 6 == 0,
+        }
+    )
+
+
+def _prior_divergence_bits() -> dict[str, float]:
+    """Divergence de Kullback-Leibler de chaque prior à sa référence uniforme.
+
+    En bits, sur la grille des panneaux. Partagée par les deux figures de
+    priors, pour qu'elles ne puissent pas diverger sur la même quantité.
+    """
+    groups = _anchored_prior_panel_groups()
+    bits = {}
+    for panel in (panel for group in groups for panel in group):
+        data = _prior_uniform_comparison(panel)
+        prior = data["prior"].to_numpy()
+        reference = data["reference"].to_numpy()
+        kl = np.trapezoid(prior * np.log(prior / reference), data["x"].to_numpy())
+        bits[panel[0]] = float(kl) / np.log(2)
+    return bits
+
+
+def prior_information_chart(*, dark: bool = False) -> alt.Chart:
+    """Chosen priors compared with explicit uniform reference distributions."""
+    shared_panels, anchoring_panels, local_panels = _anchored_prior_panel_groups()
+    accent = "#e49a55" if dark else "#b56824"
+    muted = "#aeb4c0" if dark else "#6d7480"
+    comparison_data = _prior_uniform_comparison
+
+    def panel_chart(panel):
+        parameter = panel[0]
+        data = comparison_data(panel)
+        # Domaine cadré exactement sur le support tracé : sans `scale` explicite,
+        # Vega-Lite arrondit à un domaine « joli » (p. ex. Concentration α,
+        # support [0.5, 1.0], se voyait étendu à 0 — 40 % du panneau en blanc,
+        # avant la première valeur réellement définie). Le même objet `x_scale`
+        # sur les trois couches évite aussi que leurs domaines divergent et se
+        # concatènent dans le titre d'axe (cf. le graphique de calibration).
+        x_scale = alt.Scale(
+            domain=[float(data["x"].min()), float(data["x"].max())], nice=True
+        )
+        x_axis = alt.Axis(tickCount=3, grid=False)
+        axes = dict(
+            x=alt.X("x:Q", title=None, axis=x_axis, scale=x_scale),
+            y=alt.Y("prior:Q", title=None, axis=None),
+        )
+        hatch = (
+            alt.Chart(data.filter("hatch"))
+            .mark_rule(color=muted, opacity=0.38, strokeWidth=0.7)
+            .encode(
+                x=alt.X("x:Q", title=None, axis=x_axis, scale=x_scale),
+                y=alt.Y("lower:Q", title=None, axis=None),
+                y2="upper:Q",
+            )
+        )
+        reference = (
+            alt.Chart(data)
+            .mark_line(color=muted, strokeDash=[4, 3], strokeWidth=1.4)
+            .encode(
+                x=alt.X("x:Q", title=None, axis=x_axis, scale=x_scale),
+                y=alt.Y("reference:Q", title=None, axis=None),
+            )
+        )
+        prior = alt.Chart(data).mark_line(color=accent, strokeWidth=2).encode(**axes)
+        layers = [hatch, reference, prior]
+        if np.allclose(data["prior"].to_numpy(), data["reference"].to_numpy()):
+            # Tilt τ : le prior retenu EST l'uniforme sur son support, donc rien
+            # à hachurer — sans ce mot, un panneau presque vide à côté de sept
+            # autres bien remplis se lirait comme un graphique cassé plutôt que
+            # comme le seul cas où le modèle n'ajoute aucune information.
+            layers.append(
+                alt.Chart(pl.DataFrame({"label": ["prior = référence uniforme"]}))
+                .mark_text(color=muted, fontSize=9, fontStyle="italic", opacity=0.85)
+                .encode(x=alt.value(64), y=alt.value(48), text=alt.Text("label:N"))
+            )
+        return alt.layer(*layers).properties(
+            width=128,
+            height=72,
+            title=alt.TitleParams(
+                parameter, anchor="middle", fontSize=11, fontWeight=400
+            ),
+        )
+
+    def group_chart(panels, title):
+        return alt.hconcat(
+            *(panel_chart(panel) for panel in panels), spacing=14
+        ).properties(title=alt.TitleParams(title, fontSize=11, fontWeight=500))
+
+    chart = alt.vconcat(
+        group_chart(shared_panels, "Paramètres partagés avec le modèle national"),
+        group_chart(anchoring_panels, "Paramètres d’ancrage de l’abstention"),
+        group_chart(local_panels, "Paramètres locaux"),
+        spacing=20,
+    ).properties(
+        title=alt.TitleParams(
+            "Où le modèle s’écarte d’une référence uniforme",
+            subtitle="Orange : prior retenu · pointillé : référence uniforme · hachures : écart entre les deux.",
+            fontWeight=500,
+        )
+    )
+    return _style(chart, dark=dark)
+
+
+def parameter_influence_chart(
+    *,
+    model: str = "kernel_anchored",
+    parties: tuple[str, ...] = ("NFP+", "ENS+", "RN+"),
+    dark: bool = False,
+) -> alt.Chart:
+    """Effect of each parameter on the median and predictive interval width."""
+    path = SENSITIVITY_DIR / f"parameter-influence-{model}.csv"
+    data = pl.read_csv(path)
+    bits = _prior_divergence_bits()
+    groups = {
+        "Concentration α": "Paramètres nationaux",
+        "Démobilisation d": "Paramètres nationaux",
+        "Tilt τ": "Paramètres nationaux",
+        "Dérive nationale δnat": "Ancrage de l’abstention",
+        "Écart local δ0101": "Ancrage de l’abstention",
+        "Mélange national λ": "Variations locales",
+        "Corrélation département ρd": "Variations locales",
+        "Corrélation région ρr": "Variations locales",
+    }
+    short_labels = {
+        "Concentration α": "α",
+        "Démobilisation d": "d",
+        "Tilt τ": "τ",
+        "Dérive nationale δnat": "δnat",
+        "Écart local δ0101": "δ0101",
+        "Mélange national λ": "λ",
+        "Corrélation département ρd": "ρd",
+        "Corrélation région ρr": "ρr",
+    }
+    data = (
+        data.filter(pl.col("parti").is_in(parties))
+        .with_columns(
+            pl.col("parametre").replace_strict(bits, default=None).alias("bits"),
+            pl.col("parametre").replace_strict(groups).alias("groupe"),
+            pl.col("parametre").replace_strict(short_labels).alias("etiquette"),
+        )
+        .drop_nulls("bits")
+        .sort("amplitude_p50")
+    )
+
+    muted = "#aeb4c0" if dark else "#6d7480"
+    group_domain = [
+        "Paramètres nationaux",
+        "Ancrage de l’abstention",
+        "Variations locales",
+    ]
+    group_range = (
+        ["#e49a55", "#62b6b2", "#a7a9dc"] if dark else ["#b56824", "#287271", "#5b5f97"]
+    )
+    colour = alt.Color(
+        "groupe:N",
+        scale=alt.Scale(domain=group_domain, range=group_range),
+        legend=alt.Legend(title=None, orient="top"),
+    )
+
+    x_limit = (
+        max(float(data["amplitude_p50"].max()), float(data["plancher_p50"].max()))
+        * 1.18
+    )
+    y_limit = (
+        max(
+            float(data["amplitude_largeur"].max()),
+            float(data["plancher_largeur"].max()),
+        )
+        * 1.18
+    )
+    x_scale = alt.Scale(domain=[0, x_limit])
+    y_scale = alt.Scale(domain=[0, y_limit])
+    x_title = "Amplitude du déplacement de la médiane (sièges)"
+    y_title = "Amplitude de la largeur de l’intervalle à 90 % (sièges)"
+    x_enc = alt.X(
+        "amplitude_p50:Q",
+        title=x_title,
+        scale=x_scale,
+        axis=alt.Axis(tickCount=7),
+    )
+    y_enc = alt.Y(
+        "amplitude_largeur:Q",
+        title=y_title,
+        scale=y_scale,
+        axis=alt.Axis(tickCount=7),
+    )
+
+    noise = data.group_by("parti").agg(
+        pl.lit(0.0).alias("x_min"),
+        pl.col("plancher_p50").max().alias("x_max"),
+        pl.lit(0.0).alias("y_min"),
+        pl.col("plancher_largeur").max().alias("y_max"),
+    )
+    noise_zone = (
+        alt.Chart(noise)
+        .mark_rect(color=muted, opacity=0.11)
+        .encode(
+            x=alt.X("x_min:Q", scale=x_scale, title=x_title),
+            x2="x_max:Q",
+            y=alt.Y("y_min:Q", scale=y_scale, title=y_title),
+            y2="y_max:Q",
+        )
+    )
+    zero_lines = pl.DataFrame({"parti": list(parties), "zero": [0.0] * len(parties)})
+    zero_vertical = (
+        alt.Chart(zero_lines)
+        .mark_rule(color=muted, strokeWidth=1)
+        .encode(x=alt.X("zero:Q", scale=x_scale, title=x_title))
+    )
+    zero_horizontal = (
+        alt.Chart(zero_lines)
+        .mark_rule(color=muted, strokeWidth=1)
+        .encode(y=alt.Y("zero:Q", scale=y_scale, title=y_title))
+    )
+
+    tooltip = [
+        alt.Tooltip("parametre:N", title="Paramètre"),
+        alt.Tooltip("amplitude_p50:Q", title="Amplitude de médiane", format=".1f"),
+        alt.Tooltip("amplitude_largeur:Q", title="Amplitude de largeur", format=".1f"),
+        alt.Tooltip("p50_bas:Q", title="Médiane, décile bas", format=".1f"),
+        alt.Tooltip("p50_haut:Q", title="Médiane, décile haut", format=".1f"),
+        alt.Tooltip("bits:Q", title="Information du prior (bits)", format=".2f"),
+    ]
+    base = alt.Chart(data).encode(x=x_enc, y=y_enc)
+    zero_information = (
+        alt.Chart(data.filter(pl.col("bits") == 0))
+        .mark_circle(filled=False, size=48, strokeWidth=1.4)
+        .encode(x=x_enc, y=y_enc, color=colour, tooltip=tooltip)
+    )
+    bubbles = (
+        alt.Chart(data.filter(pl.col("bits") > 0))
+        .mark_circle(filled=True, opacity=0.72)
+        .encode(
+            x=x_enc,
+            y=y_enc,
+            color=colour,
+            size=alt.Size(
+                "bits:Q",
+                title="Information du prior (bits)",
+                scale=alt.Scale(domain=[0, float(data["bits"].max())], range=[0, 900]),
+                legend=alt.Legend(
+                    orient="right",
+                    tickCount=3,
+                    symbolFillColor=muted,
+                    labelColor=muted,
+                    titleColor=muted,
+                ),
+            ),
+            tooltip=tooltip,
+        )
+    )
+
+    labels = base.mark_text(
+        color=muted,
+        fontSize=9,
+        fontWeight=500,
+        align="left",
+        dx=7,
+        dy=-7,
+    ).encode(text="etiquette:N")
+
+    quadrant_rows = []
+    for party in parties:
+        party_noise = noise.filter(pl.col("parti") == party).row(0, named=True)
+        quadrant_rows.extend(
+            [
+                {
+                    "parti": party,
+                    "x": 0.03 * x_limit,
+                    "y": 0.94 * y_limit,
+                    "label": "Surtout\nincertitude",
+                    "position": "top_left",
+                },
+                {
+                    "parti": party,
+                    "x": 0.96 * x_limit,
+                    "y": 0.94 * y_limit,
+                    "label": "Médiane et\nincertitude",
+                    "position": "top_right",
+                },
+                {
+                    "parti": party,
+                    "x": 0.95 * party_noise["x_max"],
+                    "y": 0.95 * party_noise["y_max"],
+                    "label": "Effet faible",
+                    "position": "noise",
+                },
+                {
+                    "parti": party,
+                    "x": 0.96 * x_limit,
+                    "y": 0.04 * y_limit,
+                    "label": "Surtout\nmédiane",
+                    "position": "bottom_right",
+                },
+            ]
+        )
+    quadrant_data = pl.DataFrame(quadrant_rows)
+
+    def quadrant_labels(position, *, align, baseline):
+        return (
+            alt.Chart(quadrant_data.filter(pl.col("position") == position))
+            .mark_text(
+                align=align,
+                baseline=baseline,
+                color=muted,
+                fontSize=8,
+                fontStyle="italic",
+                lineBreak="\n",
+                lineHeight=11,
+                opacity=0.82,
+            )
+            .encode(
+                x=alt.X("x:Q", scale=x_scale, title=x_title),
+                y=alt.Y("y:Q", scale=y_scale, title=y_title),
+                text="label:N",
+            )
+        )
+
+    panel_layers = [
+        noise_zone,
+        zero_vertical,
+        zero_horizontal,
+        zero_information,
+        bubbles,
+        labels,
+        quadrant_labels("top_left", align="left", baseline="top"),
+        quadrant_labels("top_right", align="right", baseline="top"),
+        quadrant_labels("noise", align="right", baseline="top"),
+        quadrant_labels("bottom_right", align="right", baseline="bottom"),
+    ]
+    panels = [
+        alt.layer(
+            *(
+                layer.transform_filter(alt.datum.parti == party)
+                for layer in panel_layers
+            )
+        ).properties(
+            width=225,
+            height=280,
+            title=alt.TitleParams(party, anchor="middle", fontSize=12, fontWeight=600),
+        )
+        for party in parties
+    ]
+    chart = (
+        alt.hconcat(*panels, spacing=14)
+        .properties(
+            title={
+                "text": "Quels paramètres déplacent ou élargissent la prévision ?",
+                "subtitle": [
+                    "Position : amplitude observée entre les dix déciles. Taille : information injectée par le prior.",
+                    f"Modèle {model} · rectangle gris propre à chaque parti : deux effets indiscernables du bruit.",
+                ],
+            },
+        )
+        .resolve_scale(x="shared", y="shared", color="shared", size="shared")
+    )
+    return _style(chart, dark=dark)
+
+
+def parameter_interval_chart(
+    *, model: str = "kernel_anchored", party: str = "RN+", dark: bool = False
+) -> alt.Chart:
+    """Ce que chaque paramètre déplace de l'INTERVALLE, pas de la moyenne.
+
+    Un indice de sensibilité classique ne suit que la moyenne conditionnelle et
+    rate donc les paramètres de pure dispersion. Ici chaque ligne compare
+    l'intervalle à 90 % obtenu quand le paramètre est dans son décile le plus
+    bas à celui obtenu dans son décile le plus haut : un déplacement horizontal
+    se lit comme un décalage, un changement de longueur comme un
+    resserrement ou un élargissement.
+    """
+    profile = pl.read_csv(
+        SENSITIVITY_DIR / f"parameter-interval-profile-{model}.csv"
+    ).filter(pl.col("parti") == party)
+    swings = pl.read_csv(
+        SENSITIVITY_DIR / f"parameter-interval-swing-{model}.csv"
+    ).filter(pl.col("parti") == party)
+
+    reference = profile.filter(pl.col("decile") == -1)
+    ref_p05 = float(reference["p05"][0])
+    ref_p50 = float(reference["p50"][0])
+    ref_p95 = float(reference["p95"][0])
+
+    conditioned = profile.filter(pl.col("decile") >= 0)
+    bottom = conditioned.filter(pl.col("decile") == conditioned["decile"].min())
+    top = conditioned.filter(pl.col("decile") == conditioned["decile"].max())
+
+    bits = _prior_divergence_bits()
+    order = swings.sort("amplitude_max", descending=True)["parametre"].to_list()
+    data = pl.concat(
+        [
+            bottom.with_columns(pl.lit("décile le plus bas").alias("condition")),
+            top.with_columns(pl.lit("décile le plus haut").alias("condition")),
+        ]
+    ).with_columns(
+        pl.col("parametre").replace_strict(bits, default=None).alias("bits"),
+        (pl.col("p95") - pl.col("p05")).alias("largeur"),
+    )
+
+    accent = "#e49a55" if dark else "#b56824"
+    muted = "#aeb4c0" if dark else "#6d7480"
+
+    span = max(ref_p95 - ref_p05, 1.0)
+    x_scale = alt.Scale(
+        domain=[
+            min(float(data["p05"].min()), ref_p05) - span * 0.12,
+            max(float(data["p95"].max()), ref_p95) + span * 0.12,
+        ]
+    )
+    x_enc = alt.X(
+        "p05:Q", title=f"Sièges {party}", scale=x_scale, axis=alt.Axis(format="d")
+    )
+    y_enc = alt.Y(
+        "parametre:N",
+        title=None,
+        sort=order,
+        axis=alt.Axis(labelFontSize=10.5, domain=False, ticks=False, labelLimit=200),
+    )
+    colour = alt.Color(
+        "condition:N",
+        scale=alt.Scale(
+            domain=["décile le plus bas", "décile le plus haut"],
+            range=[muted, accent],
+        ),
+        legend=alt.Legend(title=None, orient="top", offset=2, labelFontSize=10.5),
+    )
+    offset = alt.YOffset(
+        "condition:N",
+        scale=alt.Scale(domain=["décile le plus bas", "décile le plus haut"]),
+    )
+
+    # Intervalle non conditionné, en fond : la référence que publie le billet.
+    band = (
+        alt.Chart(pd.DataFrame({"x": [ref_p05], "x2": [ref_p95]}))
+        .mark_rect(color=muted, opacity=0.13)
+        .encode(x=alt.X("x:Q", scale=x_scale, title=None), x2="x2:Q")
+    )
+    median_rule = (
+        alt.Chart(pd.DataFrame({"x": [ref_p50]}))
+        .mark_rule(color=muted, strokeDash=[4, 3], strokeWidth=1)
+        .encode(x=alt.X("x:Q", scale=x_scale, title=None))
+    )
+
+    tooltip = [
+        alt.Tooltip("parametre:N", title="Paramètre"),
+        alt.Tooltip("condition:N", title="Condition"),
+        alt.Tooltip("p05:Q", title="p05", format=".0f"),
+        alt.Tooltip("p50:Q", title="Médiane", format=".0f"),
+        alt.Tooltip("p95:Q", title="p95", format=".0f"),
+        alt.Tooltip("largeur:Q", title="Largeur", format=".0f"),
+        alt.Tooltip("bits:Q", title="Croyance (bits)", format=".2f"),
+    ]
+    base = alt.Chart(data)
+    bars = base.mark_rule(strokeWidth=3.4, opacity=0.92).encode(
+        x=x_enc, x2="p95:Q", y=y_enc, yOffset=offset, color=colour, tooltip=tooltip
+    )
+    medians = base.mark_point(
+        shape="diamond", filled=True, size=42, stroke="white", strokeWidth=0.8
+    ).encode(
+        x=alt.X("p50:Q", scale=x_scale, title=None),
+        y=y_enc,
+        yOffset=offset,
+        color=colour,
+        tooltip=tooltip,
+    )
+
+    # Verdict par paramètre, à droite : « décale » quand l'amplitude de la
+    # médiane dépasse son plancher de bruit, « élargit » quand celle de la
+    # largeur dépasse le sien. Un `max - min` sur dix déciles est un maximum de
+    # quantités bruitées, donc jamais nul : sans ces planchers, les huit
+    # paramètres sembleraient tous faire quelque chose.
+    # La croyance injectée est rappelée à côté du verdict : sans elle il
+    # faudrait lire deux figures pour rapprocher les deux questions — ce que le
+    # prior suppose, et ce que cela déplace.
+    def _verdict(row) -> str:
+        if row["decale_vraiment"] and row["elargit_vraiment"]:
+            effect = "décale et élargit"
+        elif row["decale_vraiment"]:
+            effect = "décale"
+        elif row["elargit_vraiment"]:
+            effect = "élargit"
+        else:
+            effect = "sans effet net"
+        value = f"{bits[row['parametre']]:.2f}".replace(".", ",")
+        return f"{effect}  ·  {value} bit"
+
+    verdicts = pl.DataFrame(
+        [
+            {"parametre": row["parametre"], "verdict": _verdict(row)}
+            for row in swings.iter_rows(named=True)
+        ]
+    )
+    verdict_labels = (
+        alt.Chart(verdicts)
+        .mark_text(color=muted, fontSize=9.5, align="left", fontStyle="italic")
+        .encode(
+            # `y_enc`, et surtout pas `axis=None` : sur un graphique superposé,
+            # une seule couche qui annule l'axe le supprime pour TOUTES (les
+            # noms de paramètres avaient disparu du cadre).
+            x=alt.value(437),
+            y=y_enc,
+            text="verdict:N",
+        )
+    )
+
+    chart = alt.layer(band, median_rule, bars, medians, verdict_labels).properties(
+        width=430,
+        height=alt.Step(30),
+        title={
+            "text": "Décaler l’intervalle et l’élargir sont deux choses distinctes",
+            "subtitle": [
+                "Intervalle à 90 % des sièges quand le paramètre est dans son"
+                " décile le plus bas, puis le plus haut.",
+                f"Losange : médiane. Bande grise et pointillé : l’intervalle"
+                f" complet, [{ref_p05:.0f} — {ref_p95:.0f}], médiane"
+                f" {ref_p50:.0f}. Mention à droite : ce qui dépasse le"
+                " plancher de bruit.",
             ],
         },
     )
@@ -1710,6 +2605,12 @@ def write_classic_charts(output_dir: Path = OUTPUT_DIR) -> None:
         "district-expressed-error": district_expressed_error_chart,
         "dirichlet-simplex": simplex_chart,
         "tilt-effect": tilt_effect_chart,
+        "simulation-parameter-draws": simulation_parameter_draws_chart,
+        "anchored-parameter-draws": anchored_parameter_draws_chart,
+        "prior-information": prior_information_chart,
+        "parameter-influence": parameter_influence_chart,
+        "parameter-interval": parameter_interval_chart,
+        "win-probability-calibration": win_probability_calibration_chart,
     }
     for name, build_chart in charts.items():
         for suffix, dark in [("", False), ("-dark", True)]:

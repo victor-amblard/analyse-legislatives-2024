@@ -19,10 +19,12 @@ from scipy.stats import norm as _norm_dist
 
 from analyse_legislatives.circonscription import Circonscription, CirconscriptionResult
 from analyse_legislatives.models import build
+from analyse_legislatives.models.kernel import KernelModel
 from analyse_legislatives.models.ordinal import gammas_to_row, uniforms_to_gammas
 from analyse_legislatives.parties import (
     DESTINATIONS,
     NON_EXPRIMES,
+    Destination,
     PoliticalFamily,
     label,
 )
@@ -43,7 +45,11 @@ SOURCE = PoliticalFamily.NFPx
 # donc un duel DVG/ENS+ donne directement DVG ≻ ENS+ ≻ NON_EXPRIMES sans qu'aucune
 # paire ne soit à départager — la figure isole le mélange, pas le tie-break, qui a
 # sa propre illustration (`preference-orderings.svg`).
-DESTINATIONS_ORDER = (PoliticalFamily.DVG, PoliticalFamily.ENSx, NON_EXPRIMES)
+DESTINATIONS_ORDER: tuple[Destination, ...] = (
+    PoliticalFamily.DVG,
+    PoliticalFamily.ENSx,
+    NON_EXPRIMES,
+)
 
 DISTRICTS = ("0101", "0102", "7501")
 DISTRICT_NOTE = {
@@ -80,6 +86,7 @@ def _rows() -> tuple[dict, dict, dict]:
         region_correlation=REGION_RHO,
         dirichlet_concentration=ALPHA,
     )
+    assert isinstance(model, KernelModel)
     districts = [_bare_district(d) for d in DISTRICTS]
 
     z_nat = model.rng.standard_normal(len(DESTINATIONS_ORDER))
@@ -141,7 +148,7 @@ def _segmented_bar(x: int, y: int, shares: dict, width: int = BAR_W) -> str:
 
 def _legend(x: int, y: int) -> str:
     parts = []
-    cursor = x
+    cursor: float = x
     for destination in DESTINATIONS_ORDER:
         fill = party_colour(destination)
         text = label(destination) if destination != NON_EXPRIMES else "Non exprimés"

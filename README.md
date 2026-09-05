@@ -35,10 +35,11 @@ Le détail est [dans le billet](https://victor-amblard.gitlab.io/analyse-legisla
 Python 3.13 ou 3.14.
 
 ```bash
-python -m venv .venv
-./.venv/bin/pip install poetry
-./.venv/bin/poetry install
+uv sync
 ```
+
+Les commandes ci-dessous s'exécutent alors dans cet environnement, soit en le
+préfixant (`uv run pytest`), soit après l'avoir activé (`source .venv/bin/activate`).
 
 Les tables brutes et leur provenance sont dans `data/raw/` (résultats du
 ministère de l'intérieur et fourchettes publiées par les instituts), les fichiers géographiques
@@ -77,10 +78,15 @@ Les résultats du 2nd tour ne servent qu'à l'évaluation des modèles (`evaluat
 ### Vérifications
 
 ```bash
-pytest        # 248 tests : invariants du modèle, du prétraitement, des métriques
+pytest        # 267 tests : invariants du modèle, du prétraitement, des métriques
 mypy          # typage de src/ et scripts/ (configuration dans pyproject.toml)
+ruff check .  # lint : imports morts, pièges d'exécution, tournures dépréciées
 black .       # mise en forme
 ```
+
+`ruff` et `black` se partagent le travail sans se recouvrir : `black` impose la
+mise en forme, `ruff` ne fait que du lint (les règles de longueur de ligne lui
+sont donc désactivées). La CI lance les deux, plus le démarrage de l'app.
 
 ### Depuis Python
 
@@ -131,10 +137,11 @@ les reports les plus tranchés.
   <img src="site/public/figures/dirichlet-simplex.svg" alt="Densités théoriques des taux de report ENS+ vers LR et RN+ pour alpha égal à 0,5, 0,75 et 1." />
 </picture>
 
-**Où vont les voix.** Flux médians a priori dans les duels `ENS+`/`RN+` : la largeur est
-un nombre de voix, ce qui fait ressortir la taille réelle de chaque réservoir.
+**Où vont les voix.** Un tirage illustratif dans la circonscription 0101 : la
+largeur est un nombre de voix, ce qui fait ressortir la taille réelle de chaque
+réservoir.
 
-<img src="site/public/figures/prior-sankey.svg" alt="Diagramme de flux des reports de voix a priori dans les duels ENS+ contre RN+." />
+<img src="site/public/figures/prior-sankey.svg" alt="Diagramme des flux de voix d'un tirage illustratif dans la circonscription 0101." />
 
 **Qui arrive en tête.** Probabilité d'être seul premier groupe en nombre de sièges.
 

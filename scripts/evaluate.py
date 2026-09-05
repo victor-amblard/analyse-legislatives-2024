@@ -311,7 +311,7 @@ def main():
                 "observed_percentile",
             )
         )
-        observed = {party: value for party, value in zip(FAMILY_LABELS, seats_true)}
+        observed = dict(zip(FAMILY_LABELS, seats_true))
         diagnostics = pl.concat(
             [
                 diagnostics,

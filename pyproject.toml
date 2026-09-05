@@ -7,11 +7,13 @@ readme = "README.md"
 requires-python = ">=3.13,<3.15"
 dependencies = [
     "altair>=6,<7",
+    "matplotlib>=3.10,<4",
     "numpy>=2,<3",
     "pandas>=2.2.2,<3",
     "polars>=1.32,<2",
     "pydantic>=2,<3",
     "plotly>=5.24,<6",
+    "pillow>=11,<13",
     "pyyaml>=6.0.2,<7",
     "scipy>=1.14,<2",
     "streamlit>=1.61,<2",
@@ -34,11 +36,42 @@ dev = [
     "black[jupyter]>=24.8,<25",
     "mypy>=2.3,<3",
     "pytest>=8.3,<9",
+    "ruff>=0.14,<0.15",
 ]
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+# `black` reste le formateur : ruff ne fait ici que du LINT, jamais de mise en
+# forme, et son périmètre est exactement celui vérifié par la CI.
+target-version = "py313"
+extend-exclude = ["archive", "notebooks"]
+
+[tool.ruff.lint]
+select = [
+    "E4", "E7", "E9",  # erreurs pycodestyle réelles (E1/E5 = mise en forme, black s'en charge)
+    "F",               # pyflakes : imports et variables morts, noms indéfinis
+    "B",               # bugbear : pièges d'exécution
+    "C4",              # comprehensions inutilement détournées
+    "SIM",             # simplifications sûres
+    "UP",              # constructions dépréciées pour la version cible
+]
+ignore = [
+    # `zip(strict=True)` transformerait une longueur discordante en erreur — ce
+    # que ce dépôt veut, mais c'est un changement de COMPORTEMENT sur une
+    # trentaine d'appels, à faire délibérément et non au détour d'un lint.
+    "B905",
+    # `dict(color=..., width=...)` est la forme idiomatique des options Plotly et
+    # Altair : la littéralisation lirait moins bien que la bibliothèque appelée.
+    "C408",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Les tests nomment volontiers des variables qu'ils n'utilisent que pour lever :
+# leur imposer les mêmes règles qu'au modèle n'apporterait rien.
+"tests/*" = ["B017"]
 
 [tool.pytest.ini_options]
 # `testpaths` + la racine du dépôt dans le chemin d'import : les tests importent

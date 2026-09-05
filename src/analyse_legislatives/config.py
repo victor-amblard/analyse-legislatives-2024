@@ -1,11 +1,6 @@
 """
 Chargement de la configuration scientifique des législatives 2024.
 
-Séparé des `models` (qui ne contiennent que la mécanique statistique,
-réutilisable pour d'autres élections) et de `viz` (présentation) : ce module
-rassemble les valeurs propres à ce scrutin, partagées par l'application Streamlit
-et les scripts, pour qu'elles ne divergent pas entre les deux.
-
 La source de vérité est `config/model.yaml`. Ce module le valide via un schéma
 pydantic, convertit ses labels en objets du domaine, puis expose des constantes
 Python aux modèles, à l'application et aux scripts. Modifier un prior ou un ordre
@@ -83,12 +78,6 @@ class ExpressedShare(BaseModel):
 
 
 class ModelConfig(BaseModel):
-    """Schéma de `config/model.yaml`.
-
-    `extra="forbid"` est délibéré : une clé mal orthographiée (`n_simulation`)
-    serait sinon ignorée en silence et le défaut du code s'appliquerait, ce qui
-    est le pire des cas pour un fichier censé être la source de vérité."""
-
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     seed: int

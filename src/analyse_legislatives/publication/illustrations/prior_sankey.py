@@ -1,13 +1,9 @@
-"""Prior-predictive vote-flow Sankey for ENS+/RN+ runoffs."""
+"""Illustrative vote flows for district 0101."""
 
 from xml.sax.saxutils import escape
 
-import numpy as np
-
-from analyse_legislatives.config import DEFAULT_SEED
 from analyse_legislatives.data import load_full_results
 from analyse_legislatives.parties import (
-    NON_EXPRIMES,
     SPECTRUM_ORDER,
     label as party_label,
 )
@@ -15,93 +11,50 @@ from analyse_legislatives.publication.illustrations._shared import ABS_COLOR
 from analyse_legislatives.viz.palette import POLITICAL_FAMILY_COLORS
 
 
-def _thousands(value: float) -> str:
-    return f"{value / 1000:,.0f}".replace(",", "\u202f") + " k"
+DISTRICT_ID = "0101"
+SOURCES = ("LR", "RN+", "NFP+", "ENS+", "NON_EXPRIMES")
+TARGETS = ("LR", "RN+", "NON_EXPRIMES")
+EXAMPLE_RATES = {
+    "LR": (0.96, 0.00, 0.04),
+    "RN+": (0.00, 0.96, 0.04),
+    "NFP+": (0.62, 0.25, 0.13),
+    "ENS+": (0.71, 0.19, 0.10),
+    "NON_EXPRIMES": (0.05, 0.05, 0.90),
+}
 
 
-BLOG_DUEL = ("ENS+", "RN+")
-SANKEY_DRAWS = 240
+def _integer_flows(total: int, rates: tuple[float, ...]) -> tuple[int, ...]:
+    """Round displayed flows while preserving the source total."""
+    first = tuple(round(total * rate) for rate in rates[:-1])
+    return (*first, total - sum(first))
 
 
-def sankey_flows(duel_labels=BLOG_DUEL, n_draws=SANKEY_DRAWS, seed=DEFAULT_SEED):
-    """Return prior-predictive flow summaries for districts with this runoff."""
-    from analyse_legislatives.models import build as build_model
-    from analyse_legislatives.transfers import normalize_for_district
-
+def sankey_flows():
+    """Return the data-backed pools and illustrative flows used in the text."""
+    district = next(
+        district
+        for district in load_full_results().districts
+        if district.circonscription.id == DISTRICT_ID
+    )
     label_to_family = {party_label(party): party for party in SPECTRUM_ORDER}
-    districts = load_full_results().districts
-    qualified = {label_to_family[label] for label in duel_labels}
-    selected_indices = [
-        index
-        for index, district in enumerate(districts)
-        if {
-            party
-            for party, votes in district.competing_parties_results.items()
-            if votes > 0
-        }
-        == qualified
-    ]
-    selected = [districts[index] for index in selected_indices]
-
-    present = {
-        party
-        for district in selected
-        for party, votes in district.eliminated_parties_results.items()
-        if votes > 0 and party not in qualified
-    }
-    volume = {
-        party: sum(
-            district.eliminated_parties_results.get(party, 0) for district in selected
+    pools = district.available_vote_pools_by_party()
+    totals = {
+        source: (
+            district.non_expressed
+            if source == "NON_EXPRIMES"
+            else pools[label_to_family[source]]
         )
-        for party in present
+        for source in SOURCES
     }
-    source_families = sorted(present, key=volume.get, reverse=True) + [NON_EXPRIMES]
-    sources = [
-        "NON_EXPRIMES" if party is NON_EXPRIMES else party_label(party)
-        for party in source_families
-    ]
-    target_families = [label_to_family[label] for label in duel_labels] + [NON_EXPRIMES]
-    targets = [*duel_labels, "NON_EXPRIMES"]
-
-    model = build_model(seed=seed)
-    samples = np.zeros((n_draws, len(sources), len(targets)))
-    for draw_index in range(n_draws):
-        parameters = model.draw_simulation()
-        matrices = model.sample_transfer_matrices(districts, parameters)
-        for district_index, district in zip(selected_indices, selected):
-            matrix = normalize_for_district(
-                matrices[district_index], district, parameters.tilt
-            )
-            pools = dict(district.eliminated_parties_results)
-            pools[NON_EXPRIMES] = district.non_expressed
-            for source_index, source in enumerate(source_families):
-                pool = pools.get(source, 0)
-                if pool <= 0:
-                    continue
-                row = matrix.rates.get(source, {})
-                for target_index, target in enumerate(target_families):
-                    samples[draw_index, source_index, target_index] += pool * row.get(
-                        target, 0.0
-                    )
-
-    median = np.median(samples, axis=0)
-    low, high = np.percentile(samples, [5, 95], axis=0)
     flows = {
-        source: [
-            (
-                float(median[source_index, target_index]),
-                float(low[source_index, target_index]),
-                float(high[source_index, target_index]),
-            )
-            for target_index in range(len(targets))
-        ]
-        for source_index, source in enumerate(sources)
+        source: _integer_flows(totals[source], EXAMPLE_RATES[source])
+        for source in SOURCES
     }
-    return sources, targets, flows, len(selected)
+    return totals, flows
 
 
 def build_prior_sankey_svg() -> str:
-    sources, targets, flows, district_count = sankey_flows()
+    source_totals, flows = sankey_flows()
     label_to_family = {party_label(party): party for party in SPECTRUM_ORDER}
 
     def colour(name: str) -> str:
@@ -109,18 +62,15 @@ def build_prior_sankey_svg() -> str:
             return ABS_COLOR
         return POLITICAL_FAMILY_COLORS[label_to_family[name]]
 
-    width, height = 760, 470
-    top, bottom, node_width, gap = 74, 44, 13, 7
+    width, height = 760, 440
+    top, bottom, node_width, gap = 72, 32, 13, 8
     left_x, right_x = 132, width - 176
-    source_totals = {
-        source: sum(flow[0] for flow in flows[source]) for source in sources
-    }
     target_totals = {
-        target: sum(flows[source][index][0] for source in sources)
-        for index, target in enumerate(targets)
+        target: sum(flows[source][index] for source in SOURCES)
+        for index, target in enumerate(TARGETS)
     }
     total = sum(source_totals.values())
-    available = height - top - bottom - gap * (max(len(sources), len(targets)) - 1)
+    available = height - top - bottom - gap * (max(len(SOURCES), len(TARGETS)) - 1)
     scale = available / total
 
     def stack(names, totals):
@@ -131,7 +81,8 @@ def build_prior_sankey_svg() -> str:
             y += node_height + gap
         return positions
 
-    left, right = stack(sources, source_totals), stack(targets, target_totals)
+    left = stack(SOURCES, source_totals)
+    right = stack(TARGETS, target_totals)
     parts = [
         """<style>
     .surface{fill:#fbfbfc}.ink{fill:#16181d}.muted{fill:#5a616e}
@@ -139,18 +90,18 @@ def build_prior_sankey_svg() -> str:
     text{font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif}
     </style>""",
         f'<rect class="surface" width="{width}" height="{height}"/>',
-        '<text class="ink" x="16" y="26" font-size="13" font-weight="600">Estimation des flux de report par le modèle</text>',
-        f'<text class="muted" x="16" y="44" font-size="11">Flux médians de la distribution prédictive a priori sur {district_count} duels {targets[0]}/{targets[1]}. La largeur des flux correspond au nombre de voix.</text>',
-        f'<text class="muted" x="16" y="{top - 12}" font-size="10" letter-spacing="0.06em">RÉSERVOIR</text>',
+        '<text class="ink" x="16" y="26" font-size="13" font-weight="600">Un tirage des flux de voix dans la circonscription 0101</text>',
+        '<text class="muted" x="16" y="44" font-size="11">Les largeurs correspondent au nombre de voix obtenu avec les taux de report de l’exemple.</text>',
+        f'<text class="muted" x="16" y="{top - 12}" font-size="10" letter-spacing="0.06em">PREMIER TOUR</text>',
         f'<text class="muted" x="{right_x + node_width}" y="{top - 12}" font-size="10" letter-spacing="0.06em" text-anchor="end">SECOND TOUR</text>',
     ]
 
-    left_cursor = {name: left[name][0] for name in sources}
-    right_cursor = {name: right[name][0] for name in targets}
+    left_cursor = {name: left[name][0] for name in SOURCES}
+    right_cursor = {name: right[name][0] for name in TARGETS}
     ribbons = []
-    for source in sources:
-        for target_index, target in enumerate(targets):
-            value = flows[source][target_index][0]
+    for source in SOURCES:
+        for target_index, target in enumerate(TARGETS):
+            value = flows[source][target_index]
             if value <= 0:
                 continue
             ribbon_height = value * scale
@@ -165,9 +116,7 @@ def build_prior_sankey_svg() -> str:
             )
             left_cursor[source] += ribbon_height
             right_cursor[target] += ribbon_height
-    for _, source, left_y, right_y, ribbon_height in sorted(
-        ribbons, key=lambda ribbon: ribbon[0], reverse=True
-    ):
+    for _, source, left_y, right_y, ribbon_height in sorted(ribbons, reverse=True):
         x0, x1 = left_x + node_width, right_x
         middle = (x0 + x1) / 2
         path = (
@@ -182,14 +131,14 @@ def build_prior_sankey_svg() -> str:
         for name in names:
             y, node_height = positions[name]
             centre = y + node_height / 2
-            if previous is not None and centre - previous < 26:
-                centre = previous + 26
+            if previous is not None and centre - previous < 28:
+                centre = previous + 28
             labels[name], previous = centre, centre
         return labels
 
     for names, x, anchor, positions, totals in (
-        (sources, left_x, "end", left, source_totals),
-        (targets, right_x, "start", right, target_totals),
+        (SOURCES, left_x, "end", left, source_totals),
+        (TARGETS, right_x, "start", right, target_totals),
     ):
         label_positions = spread(names, positions)
         for name in names:
@@ -205,34 +154,16 @@ def build_prior_sankey_svg() -> str:
                 parts.append(
                     f'<line x1="{start_x}" y1="{y + node_height / 2:.1f}" x2="{end_x}" y2="{label_y:.1f}" stroke="{colour(name)}" stroke-width="0.9" opacity="0.8"/>'
                 )
+            displayed_total = f"{totals[name]:,}".replace(",", "\u202f")
             parts.extend(
                 [
                     f'<text class="ink" x="{text_x}" y="{label_y - 1:.1f}" font-size="11.5" font-weight="600" text-anchor="{anchor}">{escape(name)}</text>',
-                    f'<text class="muted" x="{text_x}" y="{label_y + 11:.1f}" font-size="10" text-anchor="{anchor}">{_thousands(totals[name])}</text>',
+                    f'<text class="muted" x="{text_x}" y="{label_y + 11:.1f}" font-size="10" text-anchor="{anchor}">{displayed_total} voix</text>',
                 ]
             )
 
-    largest_party = max(
-        (source for source in sources if source != "NON_EXPRIMES"),
-        key=source_totals.get,
-    )
-    notes = [
-        (largest_party, 0, f"{largest_party} → {targets[0]}"),
-        (largest_party, 1, f"{largest_party} → {targets[1]}"),
-        ("NON_EXPRIMES", 2, "non-exprimés qui le restent"),
-    ]
-    intervals = "  ·  ".join(
-        f"{label} {_thousands(flows[source][index][1])}–{_thousands(flows[source][index][2])}"
-        for source, index, label in notes
-    )
-    parts.extend(
-        [
-            f'<text class="muted" x="16" y="{height - bottom + 8}" font-size="10.5">Intervalle a priori à 90 % — {escape(intervals)}</text>',
-            f'<text class="muted" x="16" y="{height - bottom + 23}" font-size="10.5">Les intervalles sont immenses : le modèle connaît un ORDRE, pas un taux. Rien ici n’est ajusté sur le second tour.</text>',
-        ]
-    )
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
-        f'role="img" aria-label="Flux de voix prédictifs a priori dans {district_count} duels.">'
+        f'role="img" aria-label="Flux de voix illustratifs dans la circonscription 0101.">'
         f'{"".join(parts)}</svg>\n'
     )

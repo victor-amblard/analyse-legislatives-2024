@@ -151,23 +151,6 @@ class TransferMatrix:
             unavailable_targets=unavailable_targets,
         )
 
-    def mix(self, other: "TransferMatrix", weight: float) -> "TransferMatrix":
-        """Combinaison convexe cellule à cellule : `weight * self + (1 - weight) * other`."""
-        if self.unavailable_targets != other.unavailable_targets:
-            raise ValueError(
-                "Impossible de mélanger des matrices dont les bulletins diffèrent."
-            )
-        return TransferMatrix(
-            rates={
-                source: {
-                    target: weight * value + (1 - weight) * other.rates[source][target]
-                    for target, value in targets.items()
-                }
-                for source, targets in self.rates.items()
-            },
-            unavailable_targets=self.unavailable_targets,
-        )
-
 
 @dataclass(frozen=True)
 class _DistrictLayout:

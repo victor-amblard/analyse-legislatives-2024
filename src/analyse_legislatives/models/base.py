@@ -206,9 +206,9 @@ class Model(ABC):
         # Annoté `Destination` et non `PoliticalFamily` : `Mapping` est covariant
         # en VALEUR mais invariant en CLÉ, donc un `dict[PoliticalFamily, float]`
         # n'est pas un `Mapping[Destination, float]`.
-        own_retentions: dict[Destination, float] = {
-            party: 1.0 - draw.qualified_demobilisation for party in FAMILIES
-        }
+        own_retentions: dict[Destination, float] = dict.fromkeys(
+            FAMILIES, 1.0 - draw.qualified_demobilisation
+        )
         return [
             TransferMatrix(
                 {**rows, NON_EXPRIMES: {NON_EXPRIMES: draw.non_expressed_retention}},

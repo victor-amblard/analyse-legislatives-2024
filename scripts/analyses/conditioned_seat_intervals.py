@@ -52,7 +52,7 @@ def summarize_model(
         )
 
     actual = observed.row(0, named=True)
-    rows = []
+    rows: list[dict[str, float | int | str]] = []
     for conditioning, sample in [
         ("Prior predictive", draws),
         ("Observed expressed share", selected),

@@ -295,21 +295,23 @@ html { scroll-behavior: smooth; }
   border-radius: 6px;
 }
 
+.prose figure.figure-compact {
+  max-width: 31rem;
+  margin-inline: auto;
+}
+
 /* Les schémas très denses deviennent illisibles si on les réduit à 350 px.
    Sur petit écran, leur figure défile seule horizontalement ; la page, elle,
    conserve sa largeur. */
 @media (max-width: 42rem) {
   .prose figure:has(img[src*='simulation-pipeline']),
-  .prose figure:has(img[src*='simulation-steps']),
   .prose figure:has(img[src*='preference-orderings']),
   .prose figure:has(img[src*='prior-transfer-composition']),
   .prose figure:has(img[src*='pollster-intervals']),
   .prose figure:has(img[src*='pollster-vs-model']),
   .prose figure:has(img[src*='seat-results']),
-  .prose figure:has(img[src*='conditioned-seat-results']),
   .prose figure:has(img[src*='joint-predictive-region']),
   .prose figure:has(img[src*='joint-seats']),
-  .prose figure:has(img[src*='kernel-sensitivity']),
   .prose figure:has(img[src*='demobilisation-sensitivity']) {
     overflow-x: auto;
     scrollbar-width: thin;
@@ -317,19 +319,26 @@ html { scroll-behavior: smooth; }
 
   .prose figure img:is(
     [src*='simulation-pipeline'],
-    [src*='simulation-steps'],
     [src*='preference-orderings'],
     [src*='prior-transfer-composition'],
     [src*='pollster-intervals'],
     [src*='pollster-vs-model'],
     [src*='seat-results'],
-    [src*='conditioned-seat-results'],
     [src*='joint-predictive-region'],
     [src*='joint-seats'],
-    [src*='kernel-sensitivity'],
     [src*='demobilisation-sensitivity']
   ) {
     width: 42rem;
+    max-width: none;
+  }
+
+  .prose figure:has(img[src*='parameter-draws']) {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .prose figure img[src*='parameter-draws'] {
+    width: 38rem;
     max-width: none;
   }
 }

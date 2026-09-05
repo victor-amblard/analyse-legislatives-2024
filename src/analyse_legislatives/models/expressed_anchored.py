@@ -1,7 +1,7 @@
 """Models anchored on valid votes as a share of registered voters."""
 
-from dataclasses import dataclass
-from typing import Sequence
+from dataclasses import dataclass, field
+from collections.abc import Sequence
 
 import numpy as np
 from scipy.special import expit, logit
@@ -16,7 +16,7 @@ from analyse_legislatives.models.base import (
 from analyse_legislatives.models.kernel import KernelModel
 from analyse_legislatives.models.national import NationalModel
 from analyse_legislatives.parties import NON_EXPRIMES
-from analyse_legislatives.transfers import TransferMatrix, normalize_for_district
+from analyse_legislatives.transfers import TransferMatrix
 
 Z90 = float(norm.ppf(0.95))
 
@@ -52,6 +52,16 @@ class ExpressedShareAnchoredMixin(Model):
     national_expressed_band_pts: float | None = None
     district_expressed_band_pts: float | None = None
     expected_expressed_change_pts: float | None = None
+
+    # Trace de la simulation en cours, sur le modèle des `_drawn_*` de
+    # `KernelModel` : `delta_nat` et les `delta_c` sont tirés ICI et n'apparaissent
+    # dans aucun retour, alors qu'ils font partie des paramètres dont
+    # `scripts/analyses/parameter_influence.py` mesure l'influence. Les exposer
+    # évite de rejouer le tirage à côté du modèle — donc de le rejouer FAUX.
+    _drawn_national_change: float | None = field(default=None, init=False, repr=False)
+    _drawn_local_changes: np.ndarray | None = field(
+        default=None, init=False, repr=False
+    )
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -153,13 +163,25 @@ class ExpressedShareAnchoredMixin(Model):
     ) -> float:
         if registered == 0:
             return 0.0
-        non_expressed_tilt = sum(self.non_expressed_tilt_bounds) / 2
-        normalized = normalize_for_district(matrix, district, non_expressed_tilt)
-        lost = sum(
-            votes * normalized.rates.get(party, {}).get(NON_EXPRIMES, 0.0)
-            for party, votes in district.eliminated_parties_results.items()
-            if district.competing_parties_results.get(party, 0) <= 0
-        )
+        # Seules les lignes des partis éliminés sont nécessaires ici. Construire
+        # une matrice dense complète, puis la reconvertir en dictionnaires, doublait
+        # presque le coût de normalisation de chaque circonscription. Restreindre
+        # directement la ligne aux deux/trois qualifiés et aux non-exprimés est
+        # algébriquement la même opération ; le tilt ne concerne que la ligne des
+        # non-exprimés et n'intervient donc pas.
+        available = {
+            party
+            for party, votes in district.competing_parties_results.items()
+            if votes > 0
+        } | {NON_EXPRIMES}
+        lost = 0.0
+        for party, votes in district.eliminated_parties_results.items():
+            if votes <= 0 or district.competing_parties_results.get(party, 0) > 0:
+                continue
+            row = matrix.rates.get(party, {})
+            row_total = sum(row.get(target, 0.0) for target in available)
+            if row_total > 0:
+                lost += votes * row.get(NON_EXPRIMES, 0.0) / row_total
         return float(lost / registered)
 
     def _complete_matrices(
@@ -175,6 +197,12 @@ class ExpressedShareAnchoredMixin(Model):
         tirée sur l'échelle logit.
 
         """
+        # Remis à zéro d'entrée : les trois sorties anticipées ci-dessous
+        # délèguent au modèle non ancré sans rien tirer, et une trace laissée en
+        # place serait relue comme celle de la simulation courante.
+        self._drawn_national_change = None
+        self._drawn_local_changes = None
+
         if not districts:
             return []
 
@@ -222,6 +250,8 @@ class ExpressedShareAnchoredMixin(Model):
 
         # Coeur du modèle logit(r_{c,2}) = logit(r_{c,1}) + delta_nat + delta_c
         targets = expit(logit(shares) + national_change + district_sigma * local_change)
+        self._drawn_national_change = float(national_change)
+        self._drawn_local_changes = district_sigma * local_change
         baseline_demobilisation = draw.qualified_demobilisation
 
         contexts = []
@@ -262,8 +292,8 @@ class ExpressedShareAnchoredMixin(Model):
         )
 
         anchored = []
-        for rows, district, target, first_share, n_registered, context in zip(
-            rows_per_district, districts, targets, shares, registered, contexts
+        for rows, target, first_share, context in zip(
+            rows_per_district, targets, shares, contexts
         ):
             # Les voix gouvernées par `rho` : celles des qualifiés, plus celles
             # des éliminés de leur propre famille — `normalize_for_district` leur
@@ -278,8 +308,8 @@ class ExpressedShareAnchoredMixin(Model):
             )
             anchored.append(
                 TransferMatrix(
-                    rows | {NON_EXPRIMES: {NON_EXPRIMES: retention}},
-                    own_retentions={party: own_retention for party in governed},
+                    {**rows, NON_EXPRIMES: {NON_EXPRIMES: retention}},
+                    own_retentions=dict.fromkeys(governed, own_retention),
                 )
             )
         return anchored

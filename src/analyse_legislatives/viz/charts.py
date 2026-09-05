@@ -23,7 +23,11 @@ from analyse_legislatives.parties import (
     label,
 )
 from analyse_legislatives.transfers import TransferMatrix, normalize_for_district
-from analyse_legislatives.viz.palette import POLITICAL_FAMILY_COLORS, color_for
+from analyse_legislatives.viz.palette import (
+    POLITICAL_FAMILY_COLORS,
+    chart_theme,
+    color_for,
+)
 
 
 def bin_series(series: pl.Series, n_bins: int = 30) -> pd.DataFrame:
@@ -110,7 +114,10 @@ def render_district_wins_vs_non_expressed_chart(
 
 
 def render_seats_vs_non_expressed_chart(
-    conditional_df: pl.DataFrame, selection: alt.Parameter | None = None
+    conditional_df: pl.DataFrame,
+    selection: alt.Parameter | None = None,
+    *,
+    dark: bool = False,
 ) -> alt.Chart:
     """Courbes des sièges médians par tranche d'un point de non-exprimés.
 
@@ -149,7 +156,7 @@ def render_seats_vs_non_expressed_chart(
     chart = base.mark_line(point=alt.OverlayMarkDef(size=55), strokeWidth=2)
     if selection is not None:
         selected_points = base.mark_point(
-            size=150, filled=True, stroke="white", strokeWidth=1.5
+            size=150, filled=True, stroke=chart_theme(dark).halo, strokeWidth=1.5
         ).transform_filter(selection)
         chart = (chart + selected_points).add_params(selection)
 
@@ -157,20 +164,6 @@ def render_seats_vs_non_expressed_chart(
         height=420,
         title="Sièges médians selon le niveau de non-exprimés",
     )
-
-
-def _nice_step(range_val: float, target_lines: int = 5) -> float:
-    """Pas de graduation "rond" (1/2/5 x une puissance de 10) donnant environ
-    target_lines graduations sur l'étendue range_val — même logique que les
-    générateurs d'axes standards (ex. D3)."""
-    if range_val <= 0:
-        return 1.0
-    raw_step = range_val / target_lines
-    magnitude = 10 ** np.floor(np.log10(raw_step))
-    for m in (1, 2, 5, 10):
-        if m * magnitude >= raw_step:
-            return m * magnitude
-    return 10 * magnitude
 
 
 def _clip_line_to_box(x0, y0, slope, domain_x, domain_y):
@@ -207,6 +200,8 @@ def _render_ternary_chart(
     title: str,
     margin_selection: alt.Parameter | None = None,
     margin_parties: tuple[str, str] | None = None,
+    actual_votes: Mapping[str, int] | None = None,
+    dark: bool = False,
 ):
     """
     Diagramme ternaire : chaque simulation est un point positionné selon ses parts
@@ -219,9 +214,11 @@ def _render_ternary_chart(
     très improbable qu'un parti ou l'abstention dépasse 75%, donc le triangle
     complet laisserait un nuage minuscule au milieu d'un espace vide) : le sommet
     du triangle complet ne rentre donc pas dans le cadre, remplacé par des
-    étiquettes directionnelles en bord de zone. Le losange noir est le barycentre
-    (profil moyen) des simulations.
+    étiquettes directionnelles en bord de zone. Le losange sombre est le tirage
+    simulé le plus proche des médianes marginales ; lorsque le résultat du second
+    tour est fourni, le cercle rouge indique sa position observée.
     """
+    theme = chart_theme(dark)
     pandas_frame = pd.DataFrame(circo_df_with_abs.to_dicts())
     wide = (
         pandas_frame[
@@ -254,14 +251,54 @@ def _render_ternary_chart(
         party_a, party_b = margin_parties
         wide["margin"] = wide[party_a] - wide[party_b]
 
-    pad_x = max((wide["tx"].max() - wide["tx"].min()) * 0.3, 0.03)
-    pad_y = max((wide["ty"].max() - wide["ty"].min()) * 0.3, 0.03)
-    domain_x = [float(wide["tx"].min() - pad_x), float(wide["tx"].max() + pad_x)]
+    actual_frame = None
+    if actual_votes is not None:
+        actual_left = actual_votes.get(party_left, 0)
+        actual_right = actual_votes.get(party_right, 0)
+        actual_non_expressed = actual_votes.get(NON_EXPRIMES, 0)
+        actual_total = actual_left + actual_right + actual_non_expressed
+        actual_expressed = actual_left + actual_right
+        if actual_total > 0 and actual_expressed > 0:
+            actual_abs_share = actual_non_expressed / actual_total
+            actual_frame = pd.DataFrame(
+                {
+                    "x": [actual_right / actual_total + 0.5 * actual_abs_share],
+                    "y": [actual_abs_share * sqrt3_2],
+                    left_expressed: [actual_left / actual_expressed * 100],
+                    right_expressed: [actual_right / actual_expressed * 100],
+                    expressed_registered: [actual_expressed / actual_total * 100],
+                    non_expressed_registered: [actual_abs_share * 100],
+                }
+            )
+
+    x_min, x_max = float(wide["tx"].min()), float(wide["tx"].max())
+    y_min, y_max = float(wide["ty"].min()), float(wide["ty"].max())
+    if actual_frame is not None:
+        x_min = min(x_min, float(actual_frame["x"].iloc[0]))
+        x_max = max(x_max, float(actual_frame["x"].iloc[0]))
+        y_min = min(y_min, float(actual_frame["y"].iloc[0]))
+        y_max = max(y_max, float(actual_frame["y"].iloc[0]))
+    pad_x = max((x_max - x_min) * 0.3, 0.03)
+    pad_y = max((y_max - y_min) * 0.3, 0.03)
+    domain_x = [x_min - pad_x, x_max + pad_x]
     domain_y = [
-        float(max(wide["ty"].min() - pad_y, -0.02)),
-        float(wide["ty"].max() + pad_y),
+        max(y_min - pad_y, -0.02),
+        y_max + pad_y,
     ]
     mid_x, mid_y = (domain_x[0] + domain_x[1]) / 2, (domain_y[0] + domain_y[1]) / 2
+
+    # Le panneau est zoomé : l'angle apparent des axes dépend de ses domaines,
+    # et n'est donc pas nécessairement celui d'un triangle équilatéral complet.
+    chart_width = 480
+    chart_height = 440
+    x_span = float(domain_x[1] - domain_x[0])
+    y_span = float(domain_y[1] - domain_y[0])
+    sqrt3 = float(np.sqrt(3))
+    screen_angle = float(
+        np.degrees(np.arctan(sqrt3 * chart_height * x_span / (chart_width * y_span)))
+    )
+    left_angle = 360 - screen_angle
+    right_angle = screen_angle
 
     def xy_encoding():
         return dict(
@@ -271,8 +308,7 @@ def _render_ternary_chart(
 
     # Graduations : une famille de lignes par sommet (% non-exprimés = horizontales,
     # donc % de suffrages exprimés par complément, et parts des deux partis =
-    # obliques à ±racine(3)). Les horizontales sont espacées de 10 points ;
-    # les deux autres familles gardent un pas adapté à la zone zoomée.
+    # obliques à ±racine(3)). Toutes sont espacées de 10 points.
     def gridline_family(kind: str):
         if kind == "abs":
             pct_lo, pct_hi = domain_y[0] / sqrt3_2 * 100, domain_y[1] / sqrt3_2 * 100
@@ -288,7 +324,7 @@ def _render_ternary_chart(
                     )
             pct_lo, pct_hi = min(pcts), max(pcts)
 
-        step = 10.0 if kind == "abs" else _nice_step(pct_hi - pct_lo)
+        step = 10.0
         ticks = np.arange(np.ceil(pct_lo / step) * step, pct_hi, step)
 
         segments, labels = [], []
@@ -314,7 +350,7 @@ def _render_ternary_chart(
                 }
             )
             lx, ly = (seg[0], seg[1]) if seg[1] <= seg[3] else (seg[2], seg[3])
-            labels.append({"x": lx, "y": ly, "text": f"{pct:.0f}%"})
+            labels.append({"x": lx, "y": ly, "text": f"{pct:.0f}%", "kind": kind})
         return segments, labels
 
     grid_segments, grid_labels = [], []
@@ -324,28 +360,61 @@ def _render_ternary_chart(
         grid_labels += labs
 
     gridline_frame = pd.DataFrame(grid_segments)
-    oblique_gridlines = (
-        alt.Chart(gridline_frame[gridline_frame["kind"] != "abs"])
-        .mark_rule(color="#dddddd", strokeWidth=1)
+    left_color = POLITICAL_FAMILY_COLORS[party_left]
+    right_color = POLITICAL_FAMILY_COLORS[party_right]
+    left_gridlines = (
+        alt.Chart(gridline_frame[gridline_frame["kind"] == "left"])
+        .mark_rule(color=left_color, opacity=0.22, strokeWidth=1)
+        .encode(x2="x2:Q", y2="y2:Q", **xy_encoding())
+    )
+    right_gridlines = (
+        alt.Chart(gridline_frame[gridline_frame["kind"] == "right"])
+        .mark_rule(color=right_color, opacity=0.22, strokeWidth=1)
         .encode(x2="x2:Q", y2="y2:Q", **xy_encoding())
     )
     expressed_gridlines = (
         alt.Chart(gridline_frame[gridline_frame["kind"] == "abs"])
-        .mark_rule(color="#c7c7c7", strokeWidth=2)
+        .mark_rule(color=theme.rule, strokeWidth=2)
         .encode(x2="x2:Q", y2="y2:Q", **xy_encoding())
     )
-    gridline_text = (
-        alt.Chart(pd.DataFrame(grid_labels))
-        .mark_text(fontSize=9, color="#999999", dx=4, dy=-3)
+    gridline_label_frame = pd.DataFrame(grid_labels)
+    expressed_gridline_text = (
+        alt.Chart(gridline_label_frame[gridline_label_frame["kind"] == "abs"])
+        .mark_text(fontSize=9, color=theme.muted, dx=4, dy=-3)
         .encode(text="text:N", **xy_encoding())
     )
+    left_gridline_text = (
+        alt.Chart(gridline_label_frame[gridline_label_frame["kind"] == "left"])
+        .mark_text(
+            fontSize=9,
+            color=left_color,
+            opacity=0.8,
+            angle=left_angle,
+            dx=4,
+            dy=-3,
+        )
+        .encode(text="text:N", **xy_encoding())
+    )
+    right_gridline_text = (
+        alt.Chart(gridline_label_frame[gridline_label_frame["kind"] == "right"])
+        .mark_text(
+            fontSize=9,
+            color=right_color,
+            opacity=0.8,
+            angle=right_angle,
+            dx=4,
+            dy=-3,
+        )
+        .encode(text="text:N", **xy_encoding())
+    )
+    gridline_text = expressed_gridline_text + left_gridline_text + right_gridline_text
     tie_line = (
         alt.Chart(pd.DataFrame({"x": [0.5, 0.5], "y": domain_y}))
-        .mark_line(color="black", strokeDash=[4, 4])
+        .mark_line(color=theme.ink, strokeDash=[4, 4])
         .encode(**xy_encoding())
     )
 
-    def edge_label(x, y, text, align, color="black", angle=0):
+    def edge_label(x, y, text, align, color, angle=0):
         return (
             alt.Chart(pd.DataFrame({"x": [x], "y": [y]}))
             .mark_text(
@@ -357,23 +426,6 @@ def _render_ternary_chart(
             )
             .encode(text=alt.value(text), **xy_encoding())
         )
-
-    # La vue est zoomée et sa largeur est responsive : un angle fixe de 30°
-    # ne pointe vers les sommets que dans un triangle équilatéral non déformé.
-    # Dans une concaténation Vega-Lite, `height` désigne le conteneur, pas ce
-    # panneau. On garde donc sa hauteur explicite et seule sa largeur s'adapte.
-    chart_height = 440
-    x_span = float(domain_x[1] - domain_x[0])
-    y_span = float(domain_y[1] - domain_y[0])
-    sqrt3 = float(np.sqrt(3))
-    degrees_per_radian = float(180 / np.pi)
-    screen_angle = (
-        f"atan2({chart_height} * {x_span!r}, "
-        f"width * {y_span!r} * {sqrt3!r}) "
-        f"* {degrees_per_radian!r}"
-    )
-    left_angle = alt.ExprRef(expr=f"360 - ({screen_angle})")
-    right_angle = alt.ExprRef(expr=screen_angle)
 
     direction_labels = (
         edge_label(
@@ -438,7 +490,7 @@ def _render_ternary_chart(
             .mark_circle(
                 size=70,
                 opacity=0.9,
-                stroke="white",
+                stroke=theme.halo,
                 strokeWidth=1,
             )
             .encode(
@@ -454,42 +506,88 @@ def _render_ternary_chart(
             .transform_filter(margin_selection)
         )
 
-    barycenter_df = pd.DataFrame(
-        {
-            "x": [wide["tx"].mean()],
-            "y": [wide["ty"].mean()],
-            left_expressed: [wide[left_expressed].mean()],
-            right_expressed: [wide[right_expressed].mean()],
-            expressed_registered: [wide[expressed_registered].mean()],
-            non_expressed_registered: [wide[non_expressed_registered].mean()],
-        }
-    )
-    barycenter = (
-        alt.Chart(barycenter_df)
+    vote_columns = [party_left, party_right, NON_EXPRIMES]
+    marginal_medians = wide[vote_columns].median()
+    median_index = wide[vote_columns].sub(marginal_medians).pow(2).sum(axis=1).idxmin()
+    median_frame = wide.loc[
+        [median_index],
+        [
+            "tx",
+            "ty",
+            left_expressed,
+            right_expressed,
+            expressed_registered,
+            non_expressed_registered,
+        ],
+    ].rename(columns={"tx": "x", "ty": "y"})
+    prediction_tooltip = [
+        alt.Tooltip(f"{left_expressed}:Q", format=".1f"),
+        alt.Tooltip(f"{right_expressed}:Q", format=".1f"),
+        alt.Tooltip(f"{expressed_registered}:Q", format=".1f"),
+        alt.Tooltip(f"{non_expressed_registered}:Q", format=".1f"),
+    ]
+    median_prediction = (
+        alt.Chart(median_frame)
         .mark_point(
             shape="diamond",
             size=200,
             filled=True,
-            color="black",
-            stroke="white",
+            color=theme.ink,
+            stroke=theme.halo,
             strokeWidth=1.5,
         )
-        .encode(
-            tooltip=[
-                alt.Tooltip(f"{left_expressed}:Q", format=".1f"),
-                alt.Tooltip(f"{right_expressed}:Q", format=".1f"),
-                alt.Tooltip(f"{expressed_registered}:Q", format=".1f"),
-                alt.Tooltip(f"{non_expressed_registered}:Q", format=".1f"),
-            ],
-            **xy_encoding(),
+        .encode(tooltip=prediction_tooltip, **xy_encoding())
+    )
+    median_label = (
+        alt.Chart(median_frame)
+        .mark_text(
+            align="left",
+            dx=9,
+            dy=-13,
+            fontSize=10,
+            fontWeight=500,
         )
+        .encode(text=alt.value("Prédiction médiane du modèle"), **xy_encoding())
     )
 
-    chart = oblique_gridlines + expressed_gridlines + gridline_text + tie_line + points
+    chart = (
+        left_gridlines
+        + right_gridlines
+        + expressed_gridlines
+        + gridline_text
+        + tie_line
+        + points
+    )
     if highlighted_points is not None:
         chart += highlighted_points
-    return (chart + barycenter + direction_labels).properties(
-        width=480, height=chart_height, title=title
+    chart += median_prediction + median_label
+    if actual_frame is not None:
+        actual_point = (
+            alt.Chart(actual_frame)
+            .mark_circle(
+                size=150,
+                filled=True,
+                color="#d62728",
+                stroke=theme.halo,
+                strokeWidth=1.5,
+            )
+            .encode(tooltip=prediction_tooltip, **xy_encoding())
+        )
+        actual_label = (
+            alt.Chart(actual_frame)
+            .mark_text(
+                align="right",
+                dx=-9,
+                dy=-13,
+                fontSize=10,
+                fontWeight=500,
+                color="#d62728",
+            )
+            .encode(text=alt.value("Résultat réel"), **xy_encoding())
+        )
+        chart += actual_point + actual_label
+    return (chart + direction_labels).properties(
+        width=chart_width, height=chart_height, title=title
     )
 
 
@@ -498,10 +596,15 @@ def render_ternary_chart(
     party_left: str,
     party_right: str,
     title: str,
+    actual_votes: Mapping[str, int] | None = None,
 ):
     """Diagramme ternaire autonome, sans sélection liée."""
     return _render_ternary_chart(
-        circo_df_with_abs, party_left, party_right, title
+        circo_df_with_abs,
+        party_left,
+        party_right,
+        title,
+        actual_votes=actual_votes,
     ).configure_view(strokeWidth=0)
 
 
@@ -596,6 +699,7 @@ def _render_margin_chart(
     title: str,
     selection: alt.Parameter,
     maxbins: int,
+    dark: bool = False,
 ):
     """
     Distribution de l'écart de voix (party_a − party_b) sur les simulations,
@@ -656,7 +760,7 @@ def _render_margin_chart(
     )
     zero_line = (
         alt.Chart(pd.DataFrame({"x": [0]}))
-        .mark_rule(color="black", strokeDash=[4, 4])
+        .mark_rule(color=chart_theme(dark).ink, strokeDash=[4, 4])
         .encode(x="x:Q")
     )
     return (margin_bars + selected_bar + zero_line).properties(height=220, title=title)
@@ -687,6 +791,8 @@ def render_duel_charts(
     ternary_title: str,
     margin_title: str,
     maxbins: int = 40,
+    actual_votes: Mapping[str, int] | None = None,
+    dark: bool = False,
 ):
     """Relie l'histogramme de marge aux simulations du diagramme ternaire."""
     selection = alt.selection_point(
@@ -699,6 +805,8 @@ def render_duel_charts(
         ternary_title,
         margin_selection=selection,
         margin_parties=(party_a, party_b),
+        actual_votes=actual_votes,
+        dark=dark,
     )
     margin = _render_margin_chart(
         circo_df_with_abs,
@@ -707,6 +815,7 @@ def render_duel_charts(
         margin_title,
         selection,
         maxbins,
+        dark=dark,
     )
     return alt.vconcat(ternary, margin).configure_view(strokeWidth=0)
 
@@ -801,6 +910,8 @@ def render_duel_sankey(
     hyperparameters: TransferMatrix,
     party_a=PoliticalFamily.NFPx,
     party_b=PoliticalFamily.RNx,
+    *,
+    dark: bool = False,
 ) -> go.Figure:
     """
     Exemple abstrait d'un duel : montre les TAUX des partis éliminés et des
@@ -846,7 +957,7 @@ def render_duel_sankey(
                     color=colors,
                     pad=30,
                     thickness=20,
-                    line=dict(color="white", width=0.5),
+                    line=dict(color=chart_theme(dark).halo, width=0.5),
                 ),
                 link=dict(
                     source=sources, target=targets, value=values, color=link_colors

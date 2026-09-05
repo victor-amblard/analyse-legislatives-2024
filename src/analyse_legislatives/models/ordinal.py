@@ -12,8 +12,7 @@ simplexe qui respecte l'ordre déclaré.
 from collections.abc import Mapping, Sequence
 
 import numpy as np
-from scipy.stats import expon as _expon_dist
-from scipy.stats import gamma as _gamma_dist
+from scipy.special import gammaincinv
 
 from analyse_legislatives.parties import Destination
 
@@ -95,8 +94,8 @@ def uniforms_to_gammas(
         for target, u in uniforms.items()
     }
     if alpha == 1:
-        return {target: _expon_dist.ppf(u) for target, u in clipped.items()}
-    return {target: _gamma_dist.ppf(u, alpha) for target, u in clipped.items()}
+        return {target: -np.log1p(-u) for target, u in clipped.items()}
+    return {target: gammaincinv(alpha, u) for target, u in clipped.items()}
 
 
 def gammas_to_row(

@@ -20,6 +20,7 @@ def render(
     dirichlet_alpha_bounds: tuple[float, float],
     n_simus: int,
     seed: int,
+    dark: bool = False,
 ) -> None:
     """`prior_matrix` résume la PRÉDICTIVE A PRIORI des taux (médianes par
     cellule) : le modèle ne contient aucun taux fixé à la main, donc la seule
@@ -53,7 +54,7 @@ def render(
         national_expressed_band_pts,
         district_expressed_band_pts,
     )
-    _render_prior_predictive(prior_matrix, n_simus, seed)
+    _render_prior_predictive(prior_matrix, n_simus, seed, dark=dark)
 
 
 def _render_ordinal_core(dirichlet_alpha_bounds: tuple[float, float]) -> None:
@@ -83,7 +84,13 @@ def _render_ordinal_core(dirichlet_alpha_bounds: tuple[float, float]) -> None:
         "l'ordre de préférence donne exactement cette loi restreinte à la portion du "
         "simplexe qui respecte l'ordre."
     )
-    st.latex(r"\log\alpha \sim \mathcal{U}\left(\log %g,\ \log %g\right)" % (low, high))
+    # `%` et non f-string : la formule contient des accolades LaTeX
+    # (`\mathcal{U}`), qu'une f-string obligerait à doubler partout.
+    formula = (
+        r"\log\alpha \sim \mathcal{U}\left(\log %g,\ \log %g\right)"  # noqa: UP031
+        % (low, high)
+    )
+    st.latex(formula)
     st.caption(
         f"Une concentration nationale est tirée par simulation et partagée par toute "
         f"la matrice. À $\\alpha = 1$ la région compatible est échantillonnée "
@@ -135,7 +142,8 @@ def _render_demobilisation(prior: tuple[float, float]) -> None:
         "c'est-à-dire de rejoindre les non-exprimés. Un taux national est tiré une fois par simulation, "
         "commun à tous les qualifiés :"
     )
-    st.latex(r"d \sim \operatorname{Beta}(%g,\ %g)" % (a, b))
+    # Voir plus haut : accolades LaTeX, donc `%` plutôt qu'une f-string.
+    st.latex(r"d \sim \operatorname{Beta}(%g,\ %g)" % (a, b))  # noqa: UP031
     st.caption(
         f"Moyenne {a / (a + b):.0%}, densité **nulle en $d = 0$** : l'absence totale "
         "de démobilisation est exclue. Un taux commun évite d'inventer une différence "
@@ -180,6 +188,7 @@ def _render_prior_predictive(
     prior_matrix: TransferMatrix,
     n_simus: int,
     seed: int,
+    dark: bool = False,
 ) -> None:
     st.subheader("Ce que l'ordre déclaré implique sur les taux")
     st.markdown(
@@ -202,5 +211,7 @@ def _render_prior_predictive(
     )
     st.markdown(f"**Simulations** : $N = {n_simus}$ tirages")
     st.plotly_chart(
-        render_duel_sankey(prior_matrix), width="stretch", key="duel_sankey"
+        render_duel_sankey(prior_matrix, dark=dark),
+        width="stretch",
+        key="duel_sankey",
     )

@@ -37,7 +37,7 @@ def run_scenario(rate: float, n_simus: int, first_round, seed: int) -> pl.DataFr
 
 
 def summarize(rate: float, seats: pl.DataFrame) -> list[dict[str, float | str]]:
-    rows = []
+    rows: list[dict[str, float | str]] = []
     for party in seats.columns:
         values = seats[party].to_numpy()
         rows.append(

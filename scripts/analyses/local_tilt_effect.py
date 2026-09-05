@@ -48,7 +48,14 @@ def simulate(model_name, districts, n_simus, seed, *, local_tilt: bool):
     """
     model = build(model_name, seed=seed)
     if not local_tilt:
-        model.tilts_for_districts = Model.tilts_for_districts.__get__(model)
+        # Rebrancher une méthode sur l'instance est exactement l'objet de ce
+        # script ; mypy l'interdit par défaut, à raison, mais ici c'est le
+        # dispositif expérimental lui-même. `local_components_effect.py` fait de
+        # même sans être signalé : sa `simulate` n'est pas annotée, donc mypy
+        # n'inspecte pas son corps.
+        model.tilts_for_districts = Model.tilts_for_districts.__get__(  # type: ignore[method-assign]
+            model
+        )
     label = f"{model_name} tilt {'local' if local_tilt else 'national'}"
     with progress_bar(n_simus, label) as tick:
         return simulation.run(model, districts, n_simus, progress=tick)

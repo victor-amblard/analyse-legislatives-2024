@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-09-03T19:00:19.006702+00:00",
-  "model": "national_anchored",
+  "generated_at_utc": "2026-09-05T21:36:51.106834+00:00",
+  "model": "kernel_anchored",
   "seed": 20240707,
   "n_simulations": 2000,
-  "config_sha256": "b5faf679f1d355a7927b5532f568cdfacba6cad6844a90b886629e2ead2c9905",
+  "config_sha256": "8395317c6de3003037dfb4f94c27afc1a956e0540ff14613ff410bd1ca36b8ef",
   "district_ids": [
     "0101",
     "0102",
