@@ -149,6 +149,7 @@ def main() -> None:
         steps.append("exemple de simulation 0101")
         steps.append("animation de 20 000 simulations en 0101")
         steps.append("figures")
+        steps.append("figures en anglais")
     done = 0
 
     for model in args.models:
@@ -264,6 +265,14 @@ def main() -> None:
         done += 1
         announce(done, len(steps), "figures")
         stream([sys.executable, "-m", "analyse_legislatives.publication.figures"])
+
+        # Les figures anglaises se déduisent des SVG qu'on vient d'écrire : le
+        # script n'en traduit que le texte et ne relance aucune simulation. Il
+        # doit donc suivre immédiatement, sinon `figures/en/` se désynchronise
+        # dès la première régénération.
+        done += 1
+        announce(done, len(steps), "figures en anglais")
+        stream([sys.executable, "scripts/translate_figures.py"])
 
     raw_config = MODEL_CONFIG_PATH.read_bytes()
     manifest = {

@@ -40,8 +40,8 @@ Between the two rounds of the 2024 legislative elections, I was struck by how na
 
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/pollster-intervals-dark.svg" />
-  <img src="/figures/pollster-intervals.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/pollster-intervals-dark.svg" />
+  <img src="/figures/en/pollster-intervals.svg"
        alt="Seat ranges published by four polling institutes before the 2024 legislative elections, with the observed result marked for each political bloc." />
   </picture>
   <figcaption>
@@ -119,8 +119,8 @@ The other distinctive feature was the withdrawal of a large number of candidates
 
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/withdrawals-dark.svg" />
-  <img src="/figures/withdrawals.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/withdrawals-dark.svg" />
+  <img src="/figures/en/withdrawals.svg"
        alt="Number of candidates initially qualified for the second round, split between those who actually stood and those who withdrew, for each political family." />
   </picture>
   <figcaption>
@@ -267,7 +267,7 @@ Three families of flows appear in the transfer matrix:
 - flows into and out of the non-expressed category.
 
 <figure>
-  <img src="/figures/turnout-flows.svg"
+  <img src="/figures/en/turnout-flows.svg"
        alt="Diagram of the flows between qualified parties, eliminated parties and non-expressed ballots across the two rounds: loyalty, transfers, demobilisation, mobilisation and retention." />
   <figcaption>
     Voters of a qualified candidate can stay loyal or demobilise. Voters of an
@@ -301,7 +301,7 @@ Rather than relying on historical rates or on rates estimated from polls, I will
 
 I keep only minimal preferences that I judge consensual enough. Several destinations therefore remain tied. This does not mean, for instance, that NFP+ voters are as willing to abstain as to vote RN+ — only that I do not want to impose an ordering between them without firmer information.
 <figure>
-  <img src="/figures/preference-orderings.svg"
+  <img src="/figures/en/preference-orderings.svg"
        alt="Declared preference orderings for each political bloc's transfers, from most to least preferred destination." />
   <figcaption>
     Each row is a source bloc; destinations run from most to least preferred.
@@ -383,8 +383,8 @@ The theoretical effect of $\alpha$
 
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/dirichlet-simplex-dark.svg" />
-    <img src="/figures/dirichlet-simplex.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/dirichlet-simplex-dark.svg" />
+    <img src="/figures/en/dirichlet-simplex.svg"
          alt="Theoretical densities of the ENS+ transfer rates to LR and RN+ in an ordered two-destination split, for alpha equal to 0.5, 0.75 and 1." />
   </picture>
   <figcaption>
@@ -404,8 +404,8 @@ The theoretical effect of $\alpha$
 In practice, even though no explicit transfer rate is ever set — which is the point of this model — the choice of ordering and of distribution mechanically induces a distribution over the transfer rates, and that distribution can be visualised. The figure below shows, for two different configurations, the transfer rates implied by the partial preference ordering.
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/prior-transfer-composition-dark.svg" />
-    <img src="/figures/prior-transfer-composition.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/prior-transfer-composition-dark.svg" />
+    <img src="/figures/en/prior-transfer-composition.svg"
          alt="Prior predictive distribution of vote transfers in ENS+/RN+ and NFP+/RN+ run-offs, by source political pool." />
   </picture>
   <figcaption>
@@ -437,8 +437,8 @@ continue to be drawn as usual.
 
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/demobilisation-sensitivity-dark.svg" />
-    <img src="/figures/demobilisation-sensitivity.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/demobilisation-sensitivity-dark.svg" />
+    <img src="/figures/en/demobilisation-sensitivity.svg"
          alt="Predictive seat intervals per political family when the national demobilisation rate is fixed successively at 0, 5, 10, 15 and 20%." />
   </picture>
   <figcaption>
@@ -502,8 +502,8 @@ To model these possibilities I introduced a national parameter called the _tilt_
 
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/tilt-effect-dark.svg" />
-    <img src="/figures/tilt-effect.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/tilt-effect-dark.svg" />
+    <img src="/figures/en/tilt-effect.svg"
          alt="Split of mobilising non-expressed ballots between two candidates, for two first-round balances of power and three values of the tilt." />
   </picture>
   <figcaption>
@@ -525,8 +525,8 @@ The figure below shows where that draw sits within each parameter's probability 
 
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/simulation-parameter-draws-dark.svg" />
-    <img src="/figures/simulation-parameter-draws.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/simulation-parameter-draws-dark.svg" />
+    <img src="/figures/en/simulation-parameter-draws.svg"
          alt="Prior densities of the concentration, the demobilisation, the retention of non-expressed ballots and the tilt, each showing the value used in the worked example." />
   </picture>
   <figcaption>
@@ -619,7 +619,7 @@ family, following the aggregation the model uses.
 
 The same draw can be shown as a flow diagram:
 <figure>
-  <img src="/figures/prior-sankey.svg"
+  <img src="/figures/en/prior-sankey.svg"
        alt="Flow diagram of the illustrative draw in constituency 0101, from the first to the second round." />
   <figcaption>
     Ribbon width represents a number of votes, not a transfer rate. The figure
@@ -708,10 +708,10 @@ Across many draws, the predictive distribution gradually emerges:
 
 <figure>
   <picture>
-    <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="/figures/district-0101-simulations-dark.png" />
-    <source media="(prefers-reduced-motion: reduce)" srcset="/figures/district-0101-simulations.png" />
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/district-0101-simulations-dark.gif" />
-    <img src="/figures/district-0101-simulations.gif"
+    <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="/figures/en/district-0101-simulations-dark.png" />
+    <source media="(prefers-reduced-motion: reduce)" srcset="/figures/en/district-0101-simulations.png" />
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/district-0101-simulations-dark.gif" />
+    <img src="/figures/en/district-0101-simulations.gif"
          alt="Animation of 20,000 simulations of constituency 0101: each point shows the LR and RN+ shares of registered voters, while the cumulative frequency of an LR win stabilises." />
   </picture>
   <figcaption>
@@ -759,7 +759,7 @@ Modelling the retention of non-expressed ballots through the transfer-matrix par
 Constituency 5908, in the Nord département, had a very low share of valid votes in the first round (52.1%). Drawing standard values for the various parameters shows that the current mechanism mechanically produces a fall in abstention in the second round, which there is no real reason to expect.
 
 <figure>
-  <img src="/figures/non-expressed-balance.svg"
+  <img src="/figures/en/non-expressed-balance.svg"
        alt="Diagram of the flows between qualified parties, eliminated parties and non-expressed ballots across the two rounds: loyalty, transfers, demobilisation, mobilisation and retention." />
   <figcaption>
     Flows between qualified parties, eliminated parties and non-expressed ballots
@@ -793,7 +793,7 @@ $$
 As the diagram below shows, the controlled parameter is no longer a rate on one flow, but the net balance of all the flows that raise or lower the percentage of valid votes.
 </details>
 <figure>
-  <img src="/figures/non-expressed-anchored.svg"
+  <img src="/figures/en/non-expressed-anchored.svg"
        alt="Diagram of the flows between qualified parties, eliminated parties and non-expressed ballots across the two rounds: loyalty, transfers, demobilisation, mobilisation and retention." />
   <figcaption>
     Flows between qualified parties, eliminated parties and non-expressed ballots
@@ -821,8 +821,8 @@ This operation is a computable approximation of projecting the model's full join
 Let us now look at the valid-vote shares produced by the *prior* predictive distribution (without using any second-round result).
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/expressed-share-dark.svg" />
-    <img src="/figures/expressed-share.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/expressed-share-dark.svg" />
+    <img src="/figures/en/expressed-share.svg"
          alt="Histogram of the predictive distribution of the national share of valid votes under the national anchored model." />
   </picture>
   <figcaption>
@@ -921,7 +921,7 @@ yields a random variable with the required properties.
 </details>
 The illustration below gives an example, for one constituency, of the correlations between transfer rates within a single row of the matrix.
 <figure>
-  <img src="/figures/national-local-mixing.svg"
+  <img src="/figures/en/national-local-mixing.svg"
        alt="Effect of the mixing coefficient on one transfer row" />
   <figcaption>
 Effect of the mixing coefficient lambda on transfer rates, depending on whether the constituencies are in the same département (hence correlated) or not.
@@ -933,8 +933,8 @@ The variables drawn in one simulation of the local anchored model can now be gat
 
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/anchored-parameter-draws-dark.svg" />
-    <img src="/figures/anchored-parameter-draws.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/anchored-parameter-draws-dark.svg" />
+    <img src="/figures/en/anchored-parameter-draws.svg"
          alt="Prior densities of the local anchored model's parameters, arranged in three rows: parameters shared with the national model, turnout-anchoring parameters, and local parameters." />
   </picture>
   <figcaption>
@@ -1003,7 +1003,7 @@ _Specific to the `local_anchored` model_
 The figure below summarises the path from a national scenario to the results of the
 501 constituencies, and then to a national seat projection:
 <figure>
-<img src="/figures/simulation-pipeline.svg"
+<img src="/figures/en/simulation-pipeline.svg"
      alt="Illustration of the complete simulation process." />
 </figure>
 
@@ -1087,8 +1087,8 @@ The figure below summarises the projections from the three model variants (`nati
 
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/seat-results-dark.svg" />
-  <img src="/figures/seat-results.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/seat-results-dark.svg" />
+  <img src="/figures/en/seat-results.svg"
        alt="Central 50% and 90% prediction intervals for the seat count of each political bloc. The `national`, `national_anchored` and `local_anchored` models are stacked vertically; dots mark the medians and black diamonds the actual 2024 result." />
   </picture>
   <figcaption>
@@ -1104,8 +1104,8 @@ The figure below summarises the projections from the three model variants (`nati
 By analysing each simulated scenario, aggregate statistics can be computed — for instance on which party comes first on average.
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/dominant-party-dark.svg" />
-  <img src="/figures/dominant-party.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/dominant-party-dark.svg" />
+  <img src="/figures/en/dominant-party.svg"
        alt="Probability that NFP+, RN+ or ENS+ holds the largest number of seats under the national anchored model, with ties counted separately." />
   </picture>
   <figcaption>
@@ -1125,8 +1125,8 @@ projection, as the crossed design further down shows.
 
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/district-expressed-error-dark.svg" />
-    <img src="/figures/district-expressed-error.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/district-expressed-error-dark.svg" />
+    <img src="/figures/en/district-expressed-error.svg"
          alt="Histograms of the median valid-vote-share errors across the 501 constituencies, for the national, national anchored and local anchored models." />
   </picture>
   <figcaption>
@@ -1222,8 +1222,8 @@ One striking result is that the model is particularly well calibrated for this e
 
 <figure class="figure-compact">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/win-probability-calibration-dark.svg" />
-  <img src="/figures/win-probability-calibration.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/win-probability-calibration-dark.svg" />
+  <img src="/figures/en/win-probability-calibration.svg"
        alt="Calibration of the local model on the winner in each constituency" />
   </picture>
   <figcaption>
@@ -1236,8 +1236,8 @@ One striking result is that the model is particularly well calibrated for this e
 The model shows a strong negative correlation between `ENS+` and `RN+` seats, and between `NFP+` and `RN+`; in other words there is a marked communicating-vessels effect between them. By contrast, the seat counts of `ENS+` and `NFP+` appear almost uncorrelated.
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/joint-seats-dark.svg" />
-  <img src="/figures/joint-seats.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/joint-seats-dark.svg" />
+  <img src="/figures/en/joint-seats.svg"
        alt="Three pairwise projections of the joint predictive distribution of NFP+, ENS+ and RN+ seats under the local anchored model." />
   </picture>
   <figcaption>
@@ -1253,8 +1253,8 @@ The model shows a strong negative correlation between `ENS+` and `RN+` seats, an
 The figure below shows that the abstention rate in fact has a fairly limited impact on the seat distribution in these models. High abstention seems to benefit `ENS+` and `NFP+` slightly, but only mildly.
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/seats-by-non-expressed-dark.svg" />
-  <img src="/figures/seats-by-non-expressed.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/seats-by-non-expressed-dark.svg" />
+  <img src="/figures/en/seats-by-non-expressed.svg"
        alt="Median number of seats per party as a function of the simulated national share of people casting no valid ballot." />
   </picture>
   <figcaption>
@@ -1271,8 +1271,8 @@ The figure below shows that the abstention rate in fact has a fairly limited imp
 
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/pollster-vs-model-dark.svg" />
-  <img src="/figures/pollster-vs-model.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/pollster-vs-model-dark.svg" />
+  <img src="/figures/en/pollster-vs-model.svg"
        alt="Seat ranges published by four institutes and 90% predictive intervals of the three models, for the three blocs where the two groupings coincide, with the actual result." />
   </picture>
   <figcaption>
@@ -1298,8 +1298,8 @@ Bubble size represents the amount of information[^18] the parameter carries thro
 
 <figure>
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/figures/parameter-influence-dark.svg" />
-    <img src="/figures/parameter-influence.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="/figures/en/parameter-influence-dark.svg" />
+    <img src="/figures/en/parameter-influence.svg"
          alt="Parameter sensitivity map for RN+: position shows how each parameter shifts the median and the width of the seat interval, while bubble area represents the information injected by its prior." />
   </picture>
   <figcaption>
