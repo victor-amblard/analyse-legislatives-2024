@@ -28,3 +28,20 @@ def format_interval(
     """Intervalle central, tel qu'affiché sous les métriques."""
     lo, hi = interval_bounds(series, level)
     return f"[{lo:.{decimals}f}{suffix} — {hi:.{decimals}f}{suffix}]"
+
+
+DISPLAY_NAMES: dict[str, str] = {
+    "NFP+": "NFP et alliés",
+    "ENS+": "ENS et alliés",
+    "RN+": "RN et alliés",
+}
+"""Nom affiché d'un groupe, là où la place le permet.
+
+Le suffixe « + » dit que le groupe agrège plusieurs nuances du ministère, mais
+il faut avoir lu la table de correspondance pour le savoir. Les trois groupes
+concernés sont donc nommés en toutes lettres ; les autres (`LR`, `DVG`, `DVD`,
+`DIV`) ne regroupent rien et gardent leur sigle."""
+
+
+def display_name(party: str) -> str:
+    return DISPLAY_NAMES.get(str(party), str(party))

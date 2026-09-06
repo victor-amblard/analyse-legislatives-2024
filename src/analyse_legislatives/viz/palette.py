@@ -70,12 +70,49 @@ NUANCE_COLORS: dict[str, str] = {
 """Couleur par nuance politique brute (colonne CodNuaCand des données 1er tour),
 utilisée par les notebooks de prétraitement, avant regroupement en familles."""
 
+LABEL_COLORS_LIGHT: dict[str, str] = {
+    PoliticalFamily.RNx: "#0b5394",
+    PoliticalFamily.DIV: "#6f55a5",
+    PoliticalFamily.LR: "#0069c0",
+    PoliticalFamily.NFPx: "#c0392b",
+    PoliticalFamily.ENSx: "#a06a12",
+    PoliticalFamily.DVG: "#b05a62",
+    PoliticalFamily.DVD: "#456f97",
+}
+"""Couleurs des NOMS de partis, lisibles comme texte.
+
+Les couleurs de marque ne conviennent pas à du texte : le jaune d'`ENS+`
+n'atteint que 1,7:1 sur fond clair, le bleu pâle de `DVD` 1,8:1, là où un
+libellé de cette taille demande 4,5:1. Ces variantes conservent la teinte du
+parti au contraste requis (4,6 à 7,8:1).
+
+`ENS+` fait exception : assombrir son jaune donne un brun olive qui ne se
+reconnaît plus. Sa teinte est donc décalée vers l'ambre, qui reste identifiable
+une fois foncé."""
+
+LABEL_COLORS_DARK: dict[str, str] = {
+    PoliticalFamily.RNx: "#7fb4e4",
+    PoliticalFamily.DIV: "#b9a6e8",
+    PoliticalFamily.LR: "#5fb0ff",
+    PoliticalFamily.NFPx: "#f08a8a",
+    PoliticalFamily.ENSx: "#f0bf5e",
+    PoliticalFamily.DVG: "#eda9ae",
+    PoliticalFamily.DVD: "#a8cdee",
+}
+"""Mêmes teintes éclaircies pour le thème sombre (7,8 à 11,4:1)."""
+
 NEUTRAL_GREY = "#999999"
 """Repli pour toute clé absente des tables ci-dessus."""
 
 
 def color_for(party) -> str:
     return POLITICAL_FAMILY_COLORS.get(party, NEUTRAL_GREY)
+
+
+def label_color_for(party, *, dark: bool = False) -> str:
+    """Couleur d'un nom de parti affiché en texte."""
+    table = LABEL_COLORS_DARK if dark else LABEL_COLORS_LIGHT
+    return table.get(party, NEUTRAL_GREY)
 
 
 def chart_color_for(party, *, dark: bool = False) -> str:

@@ -1,5 +1,5 @@
 ---
-title: "Un modèle de prévision électorale avec très peu de données"
+title: "Un modèle de prévision électorale sans sondage ni données historiques"
 description: "Juste avant les législatives de 2024, j'ai consacré quelques jours à construire un modèle de prévision simple. Voici comment, et pourquoi la simplicité peut parfois valoir mieux que des sondages coûteux."
 date: 2026-09-07
 author: Victor Amblard

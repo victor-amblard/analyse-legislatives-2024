@@ -38,7 +38,13 @@ from analyse_legislatives.config import (
 )
 from analyse_legislatives.models import DEFAULT_MODEL
 from analyse_legislatives.parties import NON_EXPRIMES, SPECTRUM_LABELS
-from analyse_legislatives.viz import color_for, format_interval, format_number
+from analyse_legislatives.viz import (
+    color_for,
+    display_name,
+    format_interval,
+    format_number,
+    label_color_for,
+)
 from analyse_legislatives.viz.charts import (
     bin_series,
     render_district_wins_vs_non_expressed_chart,
@@ -110,24 +116,44 @@ def national_expressed_share(digest: str, ids: tuple[str, ...]) -> pl.Series:
     )
 
 
-def render_seat_metrics(seats_by_simu: pl.DataFrame, median_seats: dict) -> None:
+def render_seat_metrics(
+    seats_by_simu: pl.DataFrame, median_seats: dict, *, dark: bool = False
+) -> None:
     """Une colonne de métrique par parti : sièges du scénario médian, et
-    intervalle à 90% en dessous."""
+    intervalle à 90% en dessous.
+
+    Le nom du parti est rendu SÉPARÉMENT de la métrique, et celle-ci masque son
+    propre libellé. Colorer le libellé de `st.metric` demanderait de viser sa
+    structure interne au sélecteur CSS, qui n'est pas une interface stable et
+    que Streamlit surcharge déjà ; l'écrire soi-même rend la couleur certaine.
+
+    La couleur vient de `label_color_for` et non de `color_for` : les couleurs
+    de marque sont faites pour des aplats, et plusieurs — le jaune d'`ENS+`, le
+    bleu pâle de `DVD` — tombent sous 2:1 en texte, donc illisibles.
+    """
     for col, party in zip(
         st.columns(len(SPECTRUM_LABELS), gap="small"), SPECTRUM_LABELS
     ):
-        col.metric(
-            party,
-            format_number(median_seats[party]),
-            format_interval(seats_by_simu[party], decimals=0),
-            delta_color="off",
-        )
+        with col:
+            st.markdown(
+                f"<div style='color:{label_color_for(party, dark=dark)};"
+                "font-weight:700;font-size:0.85rem;line-height:1.2;"
+                f"min-height:2.4em'>{display_name(party)}</div>",
+                unsafe_allow_html=True,
+            )
+            st.metric(
+                display_name(party),
+                format_number(median_seats[party]),
+                format_interval(seats_by_simu[party], decimals=0),
+                delta_color="off",
+                label_visibility="collapsed",
+            )
 
 
 def render_seat_panel(seats_by_simu: pl.DataFrame, *, dark: bool = False) -> None:
     """Métriques par parti + hémicycle du scénario le plus représentatif."""
     median_seats = projections.median_scenario_seats(seats_by_simu)
-    render_seat_metrics(seats_by_simu, median_seats)
+    render_seat_metrics(seats_by_simu, median_seats, dark=dark)
     with st.container(horizontal_alignment="center"):
         # Streamlit plafonne cette largeur à celle du parent sur petit écran.
         st.altair_chart(render_hemicycle(median_seats, dark=dark), width=760)
@@ -136,7 +162,8 @@ def render_seat_panel(seats_by_simu: pl.DataFrame, *, dark: bool = False) -> Non
 st.set_page_config(page_title="Législatives 2024 — projections", layout="wide")
 st.title("Élections législatives 2024 : modélisation du 2nd tour")
 st.caption(
-    "Modélisation simplifiée des reports de voix. La méthodologie complète est détaillée dans [le billet]({BLOG_POST_URL})."
+    "Modélisation simplifiée des reports de voix. La méthodologie complète est "
+    f"détaillée dans [le billet]({BLOG_POST_URL})."
 )
 
 dark_theme = is_dark()
