@@ -1,16 +1,16 @@
-# Prévoir le second tour des législatives 2024 sans sondage
+# Prévoir le second tour des législatives 2024 sans sondage ?
 
 ## Description
-Un modèle statistique qui projette le nombre de sièges du second tour des élections
+Un modèle statistique (et plusieurs variantes) qui projette le nombre de sièges du second tour des élections
 législatives de 2024 à partir des **résultats du premier tour** et de la liste des
 candidats maintenus. Aucun sondage, aucun résultat d'élection passée, aucun taux de
 report fixé à la main.
 
 ### Mieux vaut être incertain que faussement précis
 
-Ce modèle essaie de ne reposer que sur des hypothèses très consensuelles et relativement peu d'informations de sorte à avoir des intervalles prédictifs bien calibrés (quitte à avoir des intervalles de confiance assez larges).
+Ce modèle essaie de ne reposer que sur des hypothèses consensuelles et relativement peu d'informations de sorte à avoir des intervalles prédictifs bien calibrés (quitte à ce qu'ils soient larges).
 
-**[Lire le billet complet →](https://victor-amblard.gitlab.io/analyse-legislatives-2024)** construction du modèle, hypothèses, résultats et limites.
+**[Lire le billet complet →](https://victor-amblard.github.io/analyse-legislatives-2024)** construction du modèle, hypothèses, résultats et limites.
 
 <picture>
   <img src="site/public/figures/seat-results.svg" alt="Intervalles de prédiction à 50 % et 90 % du nombre de sièges par groupe politique, pour les trois variantes du modèle, avec le résultat réel de 2024." />
@@ -22,14 +22,14 @@ Ce modèle essaie de ne reposer que sur des hypothèses très consensuelles et r
 
 Les voix des candidats éliminés et des non-exprimés du 1er tour sont redistribuées
 entre les candidats encore en lice. Le modèle **ne fixe aucun taux de report** : il ne
-déclare qu'un **ordre de préférence** entre destinations, et tire les taux
+déclare qu'un **ordre de préférence** (partiel) entre reports, et tire les taux
 dans la portion du simplexe qui respecte cet ordre. La participation du 2nd tour est
 ancrée sur celle du 1er, décalée d'une dérive nationale calibrée sur quatre scrutins.
 Deux mille simulations plus tard, on lit la distribution des sièges.
 
-Le détail est [dans le billet](https://victor-amblard.gitlab.io/analyse-legislatives-2024).
+Le détail est [dans le billet](https://victor-amblard.github.io/analyse-legislatives-2024).
 
-
+Toute la configuration du modèle se trouve dans le fichier YAML [model.yaml](./config/model.yaml)
 ## Installation
 
 Python 3.13 ou 3.14.
@@ -47,6 +47,10 @@ externes dans `data/external/` et la table prête à simuler dans
 `data/processed/`.
 
 ## Utilisation
+
+### Pas à pas
+
+Voir le notebook [./notebooks/1-modelisation.ipynb](./notebooks/1-modelisation.ipynb)
 
 ### L'application interactive
 
@@ -85,10 +89,6 @@ mypy          # typage de src/ et scripts/ (configuration dans pyproject.toml)
 ruff check .  # lint : imports morts, pièges d'exécution, tournures dépréciées
 black .       # mise en forme
 ```
-
-`ruff` et `black` se partagent le travail sans se recouvrir : `black` impose la
-mise en forme, `ruff` ne fait que du lint (les règles de longueur de ligne lui
-sont donc désactivées). La CI lance les deux, plus le démarrage de l'app.
 
 ### Depuis Python
 
@@ -152,7 +152,7 @@ réservoir.
   <img src="site/public/figures/dominant-party.svg" alt="Probabilité que NFP+, RN+ ou ENS+ soit le groupe disposant du plus grand nombre de sièges." />
 </picture>
 
-<img src="site/public/figures/legacy-france.gif" alt="Carte animée des résultats par circonscription" width="320"/>
+<!-- <img src="site/public/figures/legacy-france.gif" alt="Carte animée des résultats par circonscription" width="320"/> -->
 
 ## Architecture du code
 
@@ -205,8 +205,8 @@ méthode, sans dépendance au reste.
 ## Sources
 
 Résultats du 1er tour et candidatures du 2nd tour des législatives 2024, contours des
-circonscriptions et statistiques socio-démographiques — tous issus de
-[data.gouv.fr](https://www.data.gouv.fr/) sous Licence Ouverte.
+circonscriptions et statistiques socio-démographiques (issus de
+[data.gouv.fr](https://www.data.gouv.fr/) sous Licence Ouverte).
 
 ## Organisation du dépôt
 
@@ -220,14 +220,11 @@ scripts/                reproduction et évaluation
 scripts/analyses/       diagnostics et analyses de sensibilité
 artifacts/publication/  résultats numériques qui alimentent le billet
 site/public/figures/    SVG effectivement publiés
-research/               analyses rétrospectives, hors modèle de prévision
 tests/                  tests
 ```
 
 Les fichiers de `artifacts/publication/` et `site/public/figures/` sont des sorties
 publiables conservées pour rendre le billet vérifiable. 
-Les anciens notebooks et visuels ont été
-déplacés dans `archive/`, où ils restent visibles mais séparés du code actif.
 
 ## Licence
 Le dépôt est publié sous [Licence Ouverte 2.0](LICENSE).
