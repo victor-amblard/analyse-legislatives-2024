@@ -102,9 +102,7 @@ class TestBatchedProjection:
                 project_probabilities(rates, weights, targets[row], low, high)
             )
 
-        projected = project_probabilities_batch(
-            drawn, votes, targets, lowest, highest
-        )
+        projected = project_probabilities_batch(drawn, votes, targets, lowest, highest)
         for row, reference in enumerate(expected):
             assert projected[row, : reference.size] == pytest.approx(
                 reference, abs=1e-12

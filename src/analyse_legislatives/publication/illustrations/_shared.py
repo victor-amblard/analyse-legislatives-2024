@@ -16,9 +16,7 @@ def readable_ink(hex_colour: str) -> str:
     def luminance(colour: str) -> float:
         values = [int(colour[i : i + 2], 16) / 255 for i in (1, 3, 5)]
         linear = [
-            value / 12.92
-            if value <= 0.04045
-            else ((value + 0.055) / 1.055) ** 2.4
+            value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
             for value in values
         ]
         return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]

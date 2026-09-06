@@ -411,9 +411,7 @@ class ExpressedShareAnchoredMixin(Model):
         sur la contrainte comme sur les bornes.
         """
         indices = list(reservoirs_by_index)
-        width = max(
-            len(reservoirs_by_index[index].reservoirs) for index in indices
-        )
+        width = max(len(reservoirs_by_index[index].reservoirs) for index in indices)
         drawn = np.full((len(indices), width), 0.5)
         votes = np.zeros((len(indices), width))
         lowest = np.zeros((len(indices), width))

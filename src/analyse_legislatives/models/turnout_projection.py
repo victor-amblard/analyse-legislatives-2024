@@ -150,7 +150,6 @@ def project_probabilities(
     return rates_at(logit_shift).copy()
 
 
-
 BISECTION_STEPS = 100
 """Itérations de la bissection groupée.
 
@@ -247,12 +246,16 @@ def set_restricted_non_expressed_probability(
     elif wanted_rate >= 1:
         new_raw_share = 1.0
     elif current_rate <= 0 or current_rate >= 1 or raw_share <= 0 or raw_share >= 1:
-        raise ValueError("Une probabilité située sur le bord ne peut pas être déplacée.")
+        raise ValueError(
+            "Une probabilité située sur le bord ne peut pas être déplacée."
+        )
     else:
         logit_shift = float(logit(wanted_rate) - logit(current_rate))
         new_raw_share = float(expit(logit(raw_share) + logit_shift))
 
-    expressed_scale = (1.0 - new_raw_share) / (1.0 - raw_share) if raw_share < 1 else 0.0
+    expressed_scale = (
+        (1.0 - new_raw_share) / (1.0 - raw_share) if raw_share < 1 else 0.0
+    )
     for target in adjusted:
         if target != NON_EXPRIMES:
             adjusted[target] *= expressed_scale

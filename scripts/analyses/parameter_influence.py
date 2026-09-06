@@ -301,9 +301,9 @@ def main() -> None:
         traced, _ = traced_run(
             build(args.model, seed=args.seed), districts, 12, district_index, None
         )
-        assert np.array_equal(reference, traced), (
-            "la boucle tracée a divergé de simulation.run"
-        )
+        assert np.array_equal(
+            reference, traced
+        ), "la boucle tracée a divergé de simulation.run"
         print("boucle tracée identique à simulation.run\n")
 
     rows = []

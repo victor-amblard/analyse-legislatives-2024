@@ -460,9 +460,9 @@ class TestFreeAbstentionTarget:
                     row = m.rates[source]
                     higher = [row[t] for tier in tiers[:-1] for t in tier if t in row]
                     if higher:
-                        assert row[NON_EXPRIMES] <= min(higher) + 1e-9, (
-                            f"ligne {source}"
-                        )
+                        assert (
+                            row[NON_EXPRIMES] <= min(higher) + 1e-9
+                        ), f"ligne {source}"
 
     def test_abstention_may_exceed_its_tied_party(self, districts):
         """Le point de la manœuvre : NON_EXPRIMES n'étant plus SEULE au dernier palier, elle
@@ -477,9 +477,9 @@ class TestFreeAbstentionTarget:
             if row[NON_EXPRIMES] > row[PoliticalFamily.RNx]:
                 seen = True
                 break
-        assert seen, (
-            "NON_EXPRIMES doit pouvoir dépasser RN+, son ex aequo de dernier palier"
-        )
+        assert (
+            seen
+        ), "NON_EXPRIMES doit pouvoir dépasser RN+, son ex aequo de dernier palier"
 
     def test_abstention_stays_under_the_strictly_preferred_tier_in_a_duel(self, duel):
         """Conséquence mécanique dans un duel NFP+/RN+ sur la ligne ENS+ : NFP+ est
