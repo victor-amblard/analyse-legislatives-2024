@@ -23,11 +23,7 @@ from analyse_legislatives.parties import (
     label,
 )
 from analyse_legislatives.transfers import TransferMatrix, normalize_for_district
-from analyse_legislatives.viz.palette import (
-    POLITICAL_FAMILY_COLORS,
-    chart_theme,
-    color_for,
-)
+from analyse_legislatives.viz.palette import chart_color_for, chart_theme, color_for
 
 
 def bin_series(series: pl.Series, n_bins: int = 30) -> pd.DataFrame:
@@ -71,7 +67,7 @@ def render_expressed_share_chart(binned_df: pd.DataFrame, title: str):
 
 
 def render_district_wins_vs_non_expressed_chart(
-    conditional_df: pl.DataFrame, title: str
+    conditional_df: pl.DataFrame, title: str, *, dark: bool = False
 ) -> alt.Chart:
     """Probabilité de victoire par tranche d'un point de non-exprimés.
 
@@ -81,7 +77,7 @@ def render_district_wins_vs_non_expressed_chart(
     quart des circonscriptions."""
     parties = conditional_df["parti"].unique().to_list()
     domain = [p for p in SPECTRUM_LABELS if p in parties]
-    colors = [color_for(PoliticalFamily(party)) for party in domain]
+    colors = [chart_color_for(PoliticalFamily(party), dark=dark) for party in domain]
     return (
         alt.Chart(conditional_df)
         .mark_line(point=alt.OverlayMarkDef(size=55), strokeWidth=2)
@@ -125,7 +121,7 @@ def render_seats_vs_non_expressed_chart(
     tranche — donc les points de tous les partis au même niveau de non-exprimés.
     """
     domain = list(SPECTRUM_LABELS)
-    colors = [color_for(PoliticalFamily(party)) for party in domain]
+    colors = [chart_color_for(PoliticalFamily(party), dark=dark) for party in domain]
     base = alt.Chart(conditional_df).encode(
         x=alt.X(
             "non_exprimés:Q",
@@ -360,8 +356,8 @@ def _render_ternary_chart(
         grid_labels += labs
 
     gridline_frame = pd.DataFrame(grid_segments)
-    left_color = POLITICAL_FAMILY_COLORS[party_left]
-    right_color = POLITICAL_FAMILY_COLORS[party_right]
+    left_color = chart_color_for(party_left, dark=dark)
+    right_color = chart_color_for(party_right, dark=dark)
     left_gridlines = (
         alt.Chart(gridline_frame[gridline_frame["kind"] == "left"])
         .mark_rule(color=left_color, opacity=0.22, strokeWidth=1)
@@ -433,7 +429,7 @@ def _render_ternary_chart(
             mid_y,
             f"← plus {party_left}",
             "left",
-            POLITICAL_FAMILY_COLORS[party_left],
+            left_color,
             left_angle,
         )
         + edge_label(
@@ -441,7 +437,7 @@ def _render_ternary_chart(
             mid_y,
             f"plus {party_right} →",
             "right",
-            POLITICAL_FAMILY_COLORS[party_right],
+            right_color,
             right_angle,
         )
         + edge_label(
@@ -456,8 +452,8 @@ def _render_ternary_chart(
     winner_scale = alt.Scale(
         domain=[party_left, party_right],
         range=[
-            POLITICAL_FAMILY_COLORS[party_left],
-            POLITICAL_FAMILY_COLORS[party_right],
+            left_color,
+            right_color,
         ],
     )
     point_encodings = dict(
@@ -543,9 +539,10 @@ def _render_ternary_chart(
         .mark_text(
             align="left",
             dx=9,
-            dy=-13,
+            dy=-22,
             fontSize=10,
             fontWeight=500,
+            color=theme.ink,
         )
         .encode(text=alt.value("Prédiction médiane du modèle"), **xy_encoding())
     )
@@ -578,7 +575,7 @@ def _render_ternary_chart(
             .mark_text(
                 align="right",
                 dx=-9,
-                dy=-13,
+                dy=-7,
                 fontSize=10,
                 fontWeight=500,
                 color="#d62728",
@@ -597,6 +594,8 @@ def render_ternary_chart(
     party_right: str,
     title: str,
     actual_votes: Mapping[str, int] | None = None,
+    *,
+    dark: bool = False,
 ):
     """Diagramme ternaire autonome, sans sélection liée."""
     return _render_ternary_chart(
@@ -605,6 +604,7 @@ def render_ternary_chart(
         party_right,
         title,
         actual_votes=actual_votes,
+        dark=dark,
     ).configure_view(strokeWidth=0)
 
 
@@ -724,8 +724,8 @@ def _render_margin_chart(
         scale=alt.Scale(
             domain=[party_a, party_b],
             range=[
-                POLITICAL_FAMILY_COLORS[party_a],
-                POLITICAL_FAMILY_COLORS[party_b],
+                chart_color_for(party_a, dark=dark),
+                chart_color_for(party_b, dark=dark),
             ],
         ),
         legend=None,
@@ -740,7 +740,7 @@ def _render_margin_chart(
             color=alt.condition(
                 selection,
                 side_color,
-                alt.value("#dddddd"),
+                alt.value(chart_theme(dark).rule),
                 empty=True,
             ),
             tooltip=count_tooltip,
@@ -772,13 +772,15 @@ def render_margin_chart(
     party_b: str,
     title: str,
     maxbins: int = 40,
+    *,
+    dark: bool = False,
 ):
     """Histogramme autonome de l'écart de voix."""
     selection = alt.selection_point(
         name="margin_bin", encodings=["x"], on="click", clear="dblclick", empty=False
     )
     return _render_margin_chart(
-        circo_df_with_abs, party_a, party_b, title, selection, maxbins
+        circo_df_with_abs, party_a, party_b, title, selection, maxbins, dark=dark
     )
 
 
@@ -874,7 +876,7 @@ def hemicycle_positions(
     return pd.DataFrame({"x": xs, "y": ys, "party": parties})
 
 
-def render_hemicycle(seats_per_party: Mapping[str, int]):
+def render_hemicycle(seats_per_party: Mapping[str, int], *, dark: bool = False):
     return (
         alt.Chart(hemicycle_positions(seats_per_party))
         .mark_circle(
@@ -889,7 +891,7 @@ def render_hemicycle(seats_per_party: Mapping[str, int]):
                 "party:N",
                 scale=alt.Scale(
                     domain=SPECTRUM_LABELS,
-                    range=[color_for(p) for p in SPECTRUM_LABELS],
+                    range=[chart_color_for(p, dark=dark) for p in SPECTRUM_LABELS],
                 ),
                 legend=alt.Legend(title="Parti"),
             ),
@@ -1055,7 +1057,10 @@ des colonnes — un artefact d'implémentation, pas un résultat."""
 
 
 def render_dominant_party_chart(
-    seats_by_simulation: pl.DataFrame, parties=("NFP+", "ENS+", "RN+")
+    seats_by_simulation: pl.DataFrame,
+    parties=("NFP+", "ENS+", "RN+"),
+    *,
+    dark: bool = False,
 ) -> alt.Chart:
     """
     Probabilité prédictive d'être l'unique premier groupe en sièges.
@@ -1083,7 +1088,7 @@ def render_dominant_party_chart(
             ],
         }
     )
-    colours = {party: color_for(party) for party in parties}
+    colours = {party: chart_color_for(party, dark=dark) for party in parties}
     colours[TIE_LABEL] = "#8a9099"
     order = data.sort_values("probabilite", ascending=False)["groupe"].tolist()
 
@@ -1110,6 +1115,10 @@ def render_dominant_party_chart(
         )
     )
     labels = base.mark_text(
-        align="left", baseline="middle", dx=6, fontWeight=600
+        align="left",
+        baseline="middle",
+        dx=6,
+        fontWeight=600,
+        color=chart_theme(dark).ink,
     ).encode(text=alt.Text("probabilite:Q", format=".1%"))
     return (bars + labels).properties(height=alt.Step(30)).configure_view(strokeWidth=0)

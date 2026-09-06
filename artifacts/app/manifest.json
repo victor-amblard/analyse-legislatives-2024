@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-09-05T21:36:51.106834+00:00",
+  "generated_at_utc": "2026-09-06T10:59:42.236159+00:00",
   "model": "kernel_anchored",
   "seed": 20240707,
   "n_simulations": 2000,

@@ -1,10 +1,12 @@
 """Variantes publiques du modèle et fabrique commune.
 
-`national` partage une matrice entre toutes les circonscriptions,
-`national_anchored` y ajoute l'ancrage des suffrages exprimés et
-`kernel_anchored` ajoute des variations locales corrélées entre
-circonscriptions d'un même département. La construction des
-lignes ordinales est isolée dans :mod:`analyse_legislatives.models.ordinal`.
+`national` partage une matrice entre toutes les circonscriptions ; `kernel` y
+ajoute des variations locales corrélées entre circonscriptions d'un même
+département ; `national_anchored` et `kernel_anchored` sont leurs pendants avec
+ancrage des suffrages exprimés. Les quatre forment un plan croisé, ce qui permet
+de lire séparément l'effet de la dépendance et celui de l'ancrage. La
+construction des lignes ordinales est isolée dans
+:mod:`analyse_legislatives.models.ordinal`.
 
 Les six hypothèses numérotées de `writeup.fr.md` sont signalées en commentaire à
 l'endroit où elles sont implémentées ; le README en donne la table complète. Deux
@@ -48,6 +50,7 @@ from analyse_legislatives.transfers import TransferMatrix
 MODELS: dict[str, type[Model]] = {
     "national": NationalModel,
     "national_anchored": NationalAnchoredModel,
+    "kernel": KernelModel,
     "kernel_anchored": KernelAnchoredModel,
 }
 
@@ -56,8 +59,15 @@ STOCHASTIC_MODELS: tuple[str, ...] = tuple(MODELS)
 PUBLICATION_MODELS: tuple[str, ...] = (
     "national",
     "national_anchored",
+    "kernel",
     "kernel_anchored",
 )
+"""Les quatre cases du plan croisé « ancrage x dépendance ».
+
+`kernel` — la dépendance sans l'ancrage — n'existait pas comme variante
+publiée : la comparaison ne pouvait donc lire que l'effet du noyau SACHANT
+l'ancrage, et n'aurait pas su dire lequel des deux porte le gain. La case
+complète le plan."""
 
 NON_EXPRESSED_TILT_BOUNDS = DEFAULT_NON_EXPRESSED_TILT_BOUNDS
 NON_EXPRESSED_TILT_MIDPOINT = sum(NON_EXPRESSED_TILT_BOUNDS) / 2
@@ -99,7 +109,7 @@ def build(
     # dans `config/model.yaml` — donc lisibles et contestables — et non posées en
     # défaut dans le code. Le garde-fou du modèle reste actif pour quiconque
     # l'instancie directement.
-    if name == "kernel_anchored":
+    if name in ("kernel", "kernel_anchored"):
         kwargs = {
             "department_correlation_prior": DEFAULT_DEPARTMENT_CORRELATION_PRIOR,
             "region_correlation_prior": DEFAULT_REGION_CORRELATION_PRIOR,

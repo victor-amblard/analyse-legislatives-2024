@@ -4,7 +4,8 @@ Application Streamlit : projections du 2nd tour, nationale et par circonscriptio
 Ce fichier ne contient que la mise en page et le câblage. Le modèle est dans
 `analyse_legislatives.models`, ses hyperparamètres dans `config/model.yaml`, la
 boucle Monte-Carlo dans `.simulation`, les agrégations dans `.projections`, les
-graphiques dans `.viz.charts` et le texte de méthodologie dans `.viz.methodology`.
+graphiques dans `.viz.charts`. La méthodologie n'est plus décrite ici : elle
+vit dans le billet, seule source à maintenir (voir `BLOG_POST_URL`).
 
 Les simulations sont produites hors ligne par ``scripts/reproduce.py``. L'app
 charge l'artefact validé qui en résulte et ne fait que des agrégations légères.
@@ -31,13 +32,6 @@ from analyse_legislatives.data import (
 )
 from analyse_legislatives.config import (
     APP_ARTIFACT_DIR,
-    DEFAULT_DIRICHLET_ALPHA_BOUNDS,
-    DEFAULT_DISTRICT_EXPRESSED_BAND_PTS,
-    DEFAULT_EXPECTED_EXPRESSED_CHANGE_PTS,
-    DEFAULT_NATIONAL_EXPRESSED_BAND_PTS,
-    DEFAULT_NON_EXPRESSED_RETENTION_PRIOR,
-    DEFAULT_NON_EXPRESSED_TILT_BOUNDS,
-    DEFAULT_QUALIFIED_DEMOBILISATION_PRIOR,
     DEFAULT_N_SIMUS,
     DEFAULT_SEED,
     MODEL_CONFIG_PATH,
@@ -54,7 +48,8 @@ from analyse_legislatives.viz.charts import (
     render_hemicycle,
     render_seats_vs_non_expressed_chart,
 )
-from analyse_legislatives.viz.methodology import render as render_methodology
+
+BLOG_POST_URL = "https://victor-amblard.github.io/analyse-legislatives-2024/"
 
 
 def is_dark() -> bool:
@@ -129,20 +124,19 @@ def render_seat_metrics(seats_by_simu: pl.DataFrame, median_seats: dict) -> None
         )
 
 
-def render_seat_panel(seats_by_simu: pl.DataFrame) -> None:
+def render_seat_panel(seats_by_simu: pl.DataFrame, *, dark: bool = False) -> None:
     """Métriques par parti + hémicycle du scénario le plus représentatif."""
     median_seats = projections.median_scenario_seats(seats_by_simu)
     render_seat_metrics(seats_by_simu, median_seats)
     with st.container(horizontal_alignment="center"):
         # Streamlit plafonne cette largeur à celle du parent sur petit écran.
-        st.altair_chart(render_hemicycle(median_seats), width=760)
+        st.altair_chart(render_hemicycle(median_seats, dark=dark), width=760)
 
 
 st.set_page_config(page_title="Législatives 2024 — projections", layout="wide")
 st.title("Élections législatives 2024 : modélisation du 2nd tour")
 st.caption(
-    "Modélisation simplifiée des reports de voix (voir le README du dépôt pour la "
-    "méthodologie)."
+    "Modélisation simplifiée des reports de voix. La méthodologie complète est détaillée dans [le billet]({BLOG_POST_URL})."
 )
 
 dark_theme = is_dark()
@@ -157,8 +151,8 @@ except AppArtifactError as exc:
 cube = artifact.cube
 district_index = {d.circonscription.id: i for i, d in enumerate(first_round.districts)}
 
-tab_national, tab_circo, tab_methodo = st.tabs(
-    ["Projection nationale", "Projection par circonscription", "Méthodologie"],
+tab_national, tab_circo = st.tabs(
+    ["Projection nationale", "Projection par circonscription"],
     key="main_tab",
     on_change="rerun",
 )
@@ -166,14 +160,16 @@ tab_national, tab_circo, tab_methodo = st.tabs(
 with tab_national:
     seats_by_simu = national_seats(digest, artifact_ids)
     st.subheader("Projection des sièges")
-    render_seat_panel(seats_by_simu)
+    render_seat_panel(seats_by_simu, dark=dark_theme)
 
     st.subheader("Qui arrive en tête ?")
     st.caption(
         "Probabilité d'être l'unique premier groupe en sièges, sur les mêmes "
         "tirages que ci-dessus. Les égalités sont comptées à part."
     )
-    st.altair_chart(render_dominant_party_chart(seats_by_simu), width="stretch")
+    st.altair_chart(
+        render_dominant_party_chart(seats_by_simu, dark=dark_theme), width="stretch"
+    )
 
     st.subheader("Participation simulée")
     expressed_by_simu = national_expressed_share(digest, artifact_ids)
@@ -236,7 +232,7 @@ with tab_national:
             st.caption(
                 f"{len(conditional_seats)} simulations sur {len(seats_by_simu)}."
             )
-            render_seat_panel(conditional_seats)
+            render_seat_panel(conditional_seats, dark=dark_theme)
         else:
             st.caption("Sélectionnez un point du graphique pour détailler sa tranche.")
 
@@ -407,6 +403,7 @@ with tab_circo:
                 render_district_wins_vs_non_expressed_chart(
                     conditional_wins,
                     f"Probabilité de victoire par niveau de non-exprimés — {choice}",
+                    dark=dark_theme,
                 ),
                 width="stretch",
                 key="district_wins_vs_non_expressed",
@@ -417,41 +414,3 @@ with tab_circo:
                 f"cette circonscription tombent dans une tranche d'un point ({low} "
                 "tirages au minimum ; les tranches plus creuses sont écartées)."
             )
-
-
-@st.cache_resource(show_spinner="Construction des figures de méthodologie…")
-def prior_simplex_chart(dark: bool):
-    """La SEULE figure du billet importable telle quelle : elle ne dépend que des
-    ordres déclarés dans `config/model.yaml`, donc d'aucune projection, donc elle
-    ne peut pas contredire les tirages de l'app.
-
-    Les graphiques de projection du billet (`dominant_party`, `joint_seats`)
-    lisent `artifacts/publication/models/` : les afficher ici montrerait des chiffres
-    en désaccord avec les autres onglets dès que la graine ou un hyperparamètre
-    change. La probabilité d'être premier groupe est donc RECALCULÉE sur le cube
-    de l'app (voir `render_dominant_party_chart`) plutôt qu'importée.
-
-    Le balayage de sensibilité au noyau a quitté cet onglet : il porte sur
-    `kernel_anchored`, pas sur le modèle par défaut que cette page décrit.
-    Il reste produit par `scripts/analyses/kernel_sensitivity.py` et commenté dans le billet.
-    """
-    from analyse_legislatives.publication.charts import simplex_chart
-
-    return simplex_chart(dark=dark)
-
-
-if tab_methodo.open:
-    with tab_methodo:
-        render_methodology(
-            artifact.prior_matrix,
-            non_expressed_retention_prior=DEFAULT_NON_EXPRESSED_RETENTION_PRIOR,
-            qualified_demobilisation_prior=DEFAULT_QUALIFIED_DEMOBILISATION_PRIOR,
-            expected_expressed_change_pts=DEFAULT_EXPECTED_EXPRESSED_CHANGE_PTS,
-            national_expressed_band_pts=DEFAULT_NATIONAL_EXPRESSED_BAND_PTS,
-            district_expressed_band_pts=DEFAULT_DISTRICT_EXPRESSED_BAND_PTS,
-            non_expressed_tilt_bounds=DEFAULT_NON_EXPRESSED_TILT_BOUNDS,
-            dirichlet_alpha_bounds=DEFAULT_DIRICHLET_ALPHA_BOUNDS,
-            n_simus=DEFAULT_N_SIMUS,
-            seed=DEFAULT_SEED,
-            dark=dark_theme,
-        )

@@ -196,12 +196,13 @@ class Model(ABC):
         draw: SimulationParameters,
     ) -> list[TransferMatrix]:
         """
-        Étape 3 — ferme chaque matrice avec les deux leviers de participation :
-        la rétention des non-exprimés et la rétention propre des qualifiés.
+        Étape 3 — ferme chaque matrice avec la rétention des non-exprimés et la
+        rétention propre des qualifiés.
 
-        Ici les deux viennent directement du prior. Les variantes ancrées les
-        résolvent au contraire par comptabilité, pour atteindre une part de
-        suffrages exprimés visée — d'où la redéfinition de cette seule méthode.
+        Ici les deux viennent directement du prior. Les variantes ancrées
+        projettent au contraire l'ensemble des flux vers les non-exprimés pour
+        atteindre une part de suffrages exprimés visée — d'où la redéfinition de
+        cette seule méthode.
         """
         # Annoté `Destination` et non `PoliticalFamily` : `Mapping` est covariant
         # en VALEUR mais invariant en CLÉ, donc un `dict[PoliticalFamily, float]`

@@ -73,6 +73,54 @@ def extension_ranks(
     return ordered, ranks
 
 
+def bounds_for_target(
+    row: Mapping[Destination, float],
+    tiers: Sequence[Sequence[Destination]],
+    target: Destination,
+) -> tuple[float, float]:
+    """Jusqu'où `target` peut bouger sans quitter la région de l'ordre déclaré.
+
+    Pendant de `gammas_to_row` : celle-ci CONSTRUIT une ligne dans la région du
+    simplexe compatible avec l'ordre, celle-ci dit de quelle MARGE une cellule y
+    dispose encore. Les deux encodent la même contrainte et doivent donc être
+    relues ensemble si l'ordre cesse d'être une contrainte dure.
+
+    On suppose que toutes les AUTRES cellules seront remises à l'échelle par un
+    même facteur — ce que fait un tilt exponentiel d'une seule cellule. Leurs
+    rapports restent intacts, et seules les inégalités qui séparent `target` de
+    ses paliers voisins peuvent devenir actives.
+
+    Les bornes portent sur la ligne BRUTE. Un appelant qui restreint ensuite la
+    ligne aux candidats réellement présents doit les convertir lui-même : la
+    restriction renormalise, donc déplace les parts.
+    """
+    target_tier = next(
+        (index for index, tier in enumerate(tiers) if target in tier), None
+    )
+    if target_tier is None:
+        return 0.0, 1.0
+
+    share = float(row[target])
+    other_mass = 1.0 - share
+    if other_mass <= 0:
+        return 1.0, 1.0
+
+    floor, ceiling = 0.0, 1.0
+    for index, tier in enumerate(tiers):
+        if index == target_tier:
+            continue
+        for other in tier:
+            other_share = row[other]
+            # Part à laquelle `target` rattraperait exactement `other`, une fois
+            # le reste de la ligne renormalisé.
+            tie_share = other_share / (other_mass + other_share)
+            if index < target_tier:
+                ceiling = min(ceiling, tie_share)
+            else:
+                floor = max(floor, tie_share)
+    return floor, ceiling
+
+
 def draw_alpha(
     bounds: tuple[float, float],
     rng: np.random.Generator,

@@ -137,6 +137,7 @@ def main() -> None:
         )
 
     steps = [f"évaluation {model}" for model in args.models]
+    steps.append("modèle de référence « tête au 1er tour »")
     if args.figures:
         steps.append("intervalles conditionnés aux suffrages exprimés")
         if args.alpha_sensitivity:
@@ -175,6 +176,24 @@ def main() -> None:
         path = args.output_dir / f"evaluation-{model}.txt"
         path.write_text(output, encoding="utf-8")
         print(f"wrote {display_path(path)}", flush=True)
+
+    # Après les évaluations : la référence relit leurs tirages pour aligner son
+    # score sur le leur, avec le même estimateur.
+    done += 1
+    announce(done, len(steps), "modèle de référence « tête au 1er tour »")
+    output = capture(
+        [
+            sys.executable,
+            "scripts/analyses/first_round_leader.py",
+            "--csv",
+            str(args.output_dir / "baseline-first-round-leader.csv"),
+            "--results-dir",
+            str(args.output_dir),
+        ]
+    )
+    path = args.output_dir / "evaluation-baseline-first-round-leader.txt"
+    path.write_text(output, encoding="utf-8")
+    print(f"wrote {display_path(path)}", flush=True)
 
     if args.figures:
         done += 1

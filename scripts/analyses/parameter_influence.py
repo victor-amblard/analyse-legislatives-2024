@@ -7,7 +7,7 @@ ne rien changer aux sièges — auquel cas l'hypothèse est forte mais inoffensi
 un prior presque plat peut au contraire piloter le résultat.
 
 Ce script mesure l'influence sur la même prédictive a priori que le billet. Son
-résultat principal compare les déciles extrêmes de chaque paramètre :
+résultat principal compare les dix déciles de chaque paramètre :
 
   - le déplacement de la médiane du nombre de sièges ;
   - la variation de la largeur de l'intervalle prédictif à 90 %.
@@ -59,7 +59,7 @@ from analyse_legislatives.utils.progress import progress_bar
 
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "artifacts" / "publication" / "sensitivity"
 DEFAULT_MODEL = "kernel_anchored"
-DEFAULT_PARTIES = ("NFP+", "ENS+", "RN+")
+DEFAULT_PARTIES = ("RN+",)
 DEFAULT_DISTRICT = "0101"
 """La circonscription dont on suit l'écart local, la même que celle du billet."""
 
@@ -73,6 +73,7 @@ FAMILY_LABELS = [str(family) for family in FAMILIES]
 PARAMETER_LABELS = {
     "alpha": "Concentration α",
     "qualified_demobilisation": "Démobilisation d",
+    "non_expressed_retention": "Rétention des non-exprimés",
     "tilt": "Tilt τ",
     "delta_nat": "Dérive nationale δnat",
     "delta_district": "Écart local δ0101",
@@ -205,6 +206,7 @@ def traced_run(model, districts, n_simus: int, district_index: int, progress):
         trace = {
             "alpha": draw.alpha,
             "qualified_demobilisation": draw.qualified_demobilisation,
+            "non_expressed_retention": draw.non_expressed_retention,
             "tilt": draw.tilt,
             "mixing_weight": draw.mixing_weight,
             "department_correlation": rho_dept,
@@ -299,9 +301,9 @@ def main() -> None:
         traced, _ = traced_run(
             build(args.model, seed=args.seed), districts, 12, district_index, None
         )
-        assert np.array_equal(
-            reference, traced
-        ), "la boucle tracée a divergé de simulation.run"
+        assert np.array_equal(reference, traced), (
+            "la boucle tracée a divergé de simulation.run"
+        )
         print("boucle tracée identique à simulation.run\n")
 
     rows = []

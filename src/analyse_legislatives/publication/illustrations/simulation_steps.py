@@ -77,10 +77,10 @@ def build_simulation_animation_svg() -> str:
     )
     parts = [
         f"""<style>
-    .surface{{fill:#fbfbfc}}.ink{{fill:#16181d}}.muted{{fill:#5a616e}}.accent{{fill:#1f6f6b}}
+    .surface{{fill:#fbfbfc}}.ink{{fill:#16181d}}.muted{{fill:#5a616e}}.accent{{fill:#432a70}}
     .hair{{stroke:#d9dce2}}.faint{{stroke:#e8eaee}}
     @media(prefers-color-scheme:dark){{.surface{{fill:#14161a}}.ink{{fill:#e9eaee}}
-    .muted{{fill:#9aa2b1}}.accent{{fill:#5cb8b1}}.hair{{stroke:#3a4049}}.faint{{stroke:#23262c}}}}
+    .muted{{fill:#9aa2b1}}.accent{{fill:#b09ce8}}.hair{{stroke:#3a4049}}.faint{{stroke:#23262c}}}}
     text{{font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif}}
     {''.join(keyframes)}{animation}
     @media(prefers-reduced-motion:reduce){{.on0,.on1,.on2,.on3,.on4{{animation:none;opacity:1}}}}

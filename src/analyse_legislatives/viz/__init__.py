@@ -1,10 +1,9 @@
 """
-Couche de présentation : palette, mise en forme, graphiques, texte de
-méthodologie.
+Couche de présentation : palette, mise en forme, graphiques.
 
-`charts` et `formatting` n'ont aucune dépendance à Streamlit — ils restent
-utilisables depuis les notebooks. `methodology` est la seule exception (c'est du
-texte d'interface), et n'est donc pas ré-exporté ici.
+Aucun module ici n'a de dépendance à Streamlit — ils restent utilisables depuis
+les notebooks. Le texte de méthodologie qui vivait dans `methodology` a été
+supprimé avec l'onglet du même nom : le billet en est désormais la seule source.
 """
 
 from analyse_legislatives.viz.formatting import (

@@ -71,9 +71,11 @@ python scripts/analyses/prior_predictive.py     # taux impliqués par les ordres
 python scripts/analyses/diagnostics.py          # erreur Monte-Carlo et variantes
 python scripts/analyses/kernel_sensitivity.py   # sensibilité au noyau et au mélange
 python scripts/analyses/pollster_benchmark.py   # comparaison avec les instituts
+python scripts/analyses/first_round_leader.py   # référence : le qualifié en tête au 1er tour gagne
 ```
 
-Les résultats du 2nd tour ne servent qu'à l'évaluation des modèles (`evaluate.py` et `pollster_benchmark.py`). Ils n'entrent jamais en compte dans la phase d'étalonnage.
+Les résultats du 2nd tour ne servent qu'à l'évaluation des modèles (`evaluate.py`,
+`pollster_benchmark.py` et `first_round_leader.py`). Ils n'entrent jamais en compte dans la phase d'étalonnage.
 
 ### Vérifications
 
@@ -170,6 +172,7 @@ réservoir.
 | `viz` | Palette, mise en forme, graphiques, texte de méthodologie |
 | `publication` | Génération des figures statiques propres au billet |
 | `evaluation` | Métriques prédictives partagées par les scripts |
+| `baselines` | Règles de référence déterministes, sans aucun report de voix |
 
 ### Où sont les hypothèses
 

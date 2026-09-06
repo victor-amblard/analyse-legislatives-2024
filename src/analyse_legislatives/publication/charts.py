@@ -31,7 +31,7 @@ from analyse_legislatives.config import (
 from analyse_legislatives.data import load_full_results, nuance_to_family
 from analyse_legislatives.parties import label as party_label
 from analyse_legislatives.publication.sources import load_pollster_ranges
-from analyse_legislatives.viz.palette import POLITICAL_FAMILY_COLORS
+from analyse_legislatives.viz.palette import chart_palette
 
 OUTPUT_DIR = PROJECT_ROOT / "site/public/figures"
 RESULTS_DIR = PROJECT_ROOT / "artifacts/publication/models"
@@ -57,6 +57,7 @@ SIMULATION_EXAMPLE_DRAWS = {
 ANCHORED_EXAMPLE_DRAWS = {
     "Concentration α": 0.70,
     "Démobilisation d": 0.04,
+    "Rétention des non-exprimés": 0.90,
     "Mélange national λ": 0.60,
     "Tilt τ": 0.0,
     "Dérive nationale δnat": 0.08,
@@ -391,7 +392,7 @@ def withdrawals_chart(*, dark: bool = False) -> alt.Chart:
     summary = pd.DataFrame(rows)
     colours = {
         party_label(family): colour
-        for family, colour in POLITICAL_FAMILY_COLORS.items()
+        for family, colour in chart_palette(dark=dark).items()
     }
     y = alt.Y("party:N", sort=parties, title=None)
     tooltip = [
@@ -527,7 +528,7 @@ def seats_non_expressed_chart(*, dark: bool = False) -> alt.Chart:
 
     colours = {
         party_label(family): colour
-        for family, colour in POLITICAL_FAMILY_COLORS.items()
+        for family, colour in chart_palette(dark=dark).items()
     }
     parties = list(dict.fromkeys(data["parti"]))
     colour = alt.Color(
@@ -609,7 +610,7 @@ def alpha_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
     ]
     colours = {
         party_label(family): colour
-        for family, colour in POLITICAL_FAMILY_COLORS.items()
+        for family, colour in chart_palette(dark=dark).items()
     }
     colour = alt.Color(
         "parti:N",
@@ -691,7 +692,7 @@ def demobilisation_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
     parties = list(dict.fromkeys(data["parti"]))
     colours = {
         party_label(family): colour
-        for family, colour in POLITICAL_FAMILY_COLORS.items()
+        for family, colour in chart_palette(dark=dark).items()
     }
 
     shared = {
@@ -1101,7 +1102,7 @@ def dominant_party_chart(*, dark: bool = False) -> alt.Chart:
     qui n'est pas un parti, garde le gris neutre des non-exprimés.
     """
     colours = {
-        party_label(family): hex for family, hex in POLITICAL_FAMILY_COLORS.items()
+        party_label(family): hex for family, hex in chart_palette(dark=dark).items()
     }
     colours[TIE_LABEL] = TIE_COLOUR_DARK if dark else TIE_COLOUR_LIGHT
 
@@ -1486,10 +1487,8 @@ def simplex_chart(*, dark: bool = False) -> alt.Chart:
     if dark:
         colours = ["#39a0ff", "#79aee3"]
     else:
-        colours = [
-            POLITICAL_FAMILY_COLORS["LR"],
-            POLITICAL_FAMILY_COLORS["RN+"],
-        ]
+        palette = chart_palette(dark=False)
+        colours = [palette["LR"], palette["RN+"]]
     base = (
         alt.Chart(pd.DataFrame(rows))
         .mark_line(strokeWidth=2.5)
@@ -1726,7 +1725,7 @@ def win_probability_calibration_chart(
         width=420,
         height=420,
         title={
-            "text": "Calibration des probabilités de victoire locale",
+            "text": "Calibration des probabilités de victoire locales",
             "subtitle": [
                 f"Modèle {model} · circonscriptions et partis qualifiés,",
                 "déciles à effectif égal, IC 95 % de Wilson par tranche",
@@ -1782,6 +1781,7 @@ def simulation_parameter_draws_chart(*, dark: bool = False) -> alt.Chart:
     markers: list[dict] = []
     for order, (parameter, flux, values, density, value_format) in enumerate(panels):
         selected = SIMULATION_EXAMPLE_DRAWS[parameter]
+        selected_density = float(density(np.array([selected]))[0])
         rows.extend(
             {
                 "parameter": parameter,
@@ -1796,6 +1796,7 @@ def simulation_parameter_draws_chart(*, dark: bool = False) -> alt.Chart:
             {
                 "parameter": parameter,
                 "selected": selected,
+                "selected_density": selected_density,
                 "selected_label": format(selected, value_format),
             }
         )
@@ -1831,7 +1832,7 @@ def simulation_parameter_draws_chart(*, dark: bool = False) -> alt.Chart:
                     stroke="white",
                     strokeWidth=1,
                 )
-                .encode(x="selected:Q", y=alt.value(8)),
+                .encode(x="selected:Q", y="selected_density:Q"),
                 alt.Chart(panel_marker)
                 .mark_text(
                     color=accent,
@@ -1840,7 +1841,11 @@ def simulation_parameter_draws_chart(*, dark: bool = False) -> alt.Chart:
                     dy=-4,
                     fontWeight=500,
                 )
-                .encode(x="selected:Q", y=alt.value(8), text="selected_label:N"),
+                .encode(
+                    x="selected:Q",
+                    y="selected_density:Q",
+                    text="selected_label:N",
+                ),
             ).properties(
                 width=128,
                 height=72,
@@ -1911,6 +1916,12 @@ def _anchored_prior_panel_groups():
             ".0%",
         ),
         (
+            "Rétention des non-exprimés",
+            np.linspace(0.5, 0.9999, 160),
+            lambda x: beta.pdf(x, *DEFAULT_NON_EXPRESSED_RETENTION_PRIOR),
+            ".0%",
+        ),
+        (
             "Tilt τ",
             np.linspace(*DEFAULT_NON_EXPRESSED_TILT_BOUNDS, 160),
             lambda x: np.full_like(x, 0.5),
@@ -1964,6 +1975,7 @@ def anchored_parameter_draws_chart(*, dark: bool = False) -> alt.Chart:
     def panel_chart(panel):
         parameter, values, density, value_format = panel
         selected = ANCHORED_EXAMPLE_DRAWS[parameter]
+        selected_density = float(density(np.array([selected]))[0])
         data = pl.DataFrame({"x": values, "density": density(values)})
         # UNE ligne, pas une par point de la grille : le repère est un seul
         # marqueur. Le lier à `data` en dessinait 160 exemplaires superposés —
@@ -1971,6 +1983,7 @@ def anchored_parameter_draws_chart(*, dark: bool = False) -> alt.Chart:
         marker = pl.DataFrame(
             {
                 "selected": [selected],
+                "selected_density": [selected_density],
                 "selected_label": [format(selected, value_format)],
             }
         )
@@ -1988,7 +2001,7 @@ def anchored_parameter_draws_chart(*, dark: bool = False) -> alt.Chart:
             .mark_point(
                 color=accent, filled=True, size=55, stroke="white", strokeWidth=1
             )
-            .encode(x="selected:Q", y=alt.value(8)),
+            .encode(x="selected:Q", y="selected_density:Q"),
             alt.Chart(marker)
             .mark_text(
                 color=accent,
@@ -1997,7 +2010,11 @@ def anchored_parameter_draws_chart(*, dark: bool = False) -> alt.Chart:
                 dy=-4,
                 fontWeight=500,
             )
-            .encode(x="selected:Q", y=alt.value(8), text="selected_label:N"),
+            .encode(
+                x="selected:Q",
+                y="selected_density:Q",
+                text="selected_label:N",
+            ),
         ).properties(
             width=128,
             height=72,
@@ -2167,7 +2184,7 @@ def prior_information_chart(*, dark: bool = False) -> alt.Chart:
 def parameter_influence_chart(
     *,
     model: str = "kernel_anchored",
-    parties: tuple[str, ...] = ("NFP+", "ENS+", "RN+"),
+    parties: tuple[str, ...] = ("RN+",),
     dark: bool = False,
 ) -> alt.Chart:
     """Effect of each parameter on the median and predictive interval width."""
@@ -2177,6 +2194,7 @@ def parameter_influence_chart(
     groups = {
         "Concentration α": "Paramètres nationaux",
         "Démobilisation d": "Paramètres nationaux",
+        "Rétention des non-exprimés": "Paramètres nationaux",
         "Tilt τ": "Paramètres nationaux",
         "Dérive nationale δnat": "Ancrage de l’abstention",
         "Écart local δ0101": "Ancrage de l’abstention",
@@ -2187,6 +2205,7 @@ def parameter_influence_chart(
     short_labels = {
         "Concentration α": "α",
         "Démobilisation d": "d",
+        "Rétention des non-exprimés": "rNE",
         "Tilt τ": "τ",
         "Dérive nationale δnat": "δnat",
         "Écart local δ0101": "δ0101",
@@ -2280,11 +2299,10 @@ def parameter_influence_chart(
         alt.Tooltip("parametre:N", title="Paramètre"),
         alt.Tooltip("amplitude_p50:Q", title="Amplitude de médiane", format=".1f"),
         alt.Tooltip("amplitude_largeur:Q", title="Amplitude de largeur", format=".1f"),
-        alt.Tooltip("p50_bas:Q", title="Médiane, décile bas", format=".1f"),
-        alt.Tooltip("p50_haut:Q", title="Médiane, décile haut", format=".1f"),
+        alt.Tooltip("plancher_p50:Q", title="Seuil médiane", format=".1f"),
+        alt.Tooltip("plancher_largeur:Q", title="Seuil largeur", format=".1f"),
         alt.Tooltip("bits:Q", title="Information du prior (bits)", format=".2f"),
     ]
-    base = alt.Chart(data).encode(x=x_enc, y=y_enc)
     zero_information = (
         alt.Chart(data.filter(pl.col("bits") == 0))
         .mark_circle(filled=False, size=48, strokeWidth=1.4)
@@ -2299,7 +2317,7 @@ def parameter_influence_chart(
             color=colour,
             size=alt.Size(
                 "bits:Q",
-                title="Information du prior (bits)",
+                title="Quantité d'information ajoutée",
                 scale=alt.Scale(domain=[0, float(data["bits"].max())], range=[0, 900]),
                 legend=alt.Legend(
                     orient="right",
@@ -2313,18 +2331,47 @@ def parameter_influence_chart(
         )
     )
 
-    labels = base.mark_text(
-        color=muted,
-        fontSize=9,
-        fontWeight=500,
-        align="left",
-        dx=7,
-        dy=-7,
-    ).encode(text="etiquette:N")
+    label_positions = {
+        "Concentration α": ("left", 7, -9),
+        "Démobilisation d": ("left", 18, 11),
+        "Tilt τ": ("right", -7, -13),
+        "Dérive nationale δnat": ("left", 7, -8),
+        "Écart local δ0101": ("left", 7, 11),
+        "Mélange national λ": ("left", 7, -5),
+        "Corrélation département ρd": ("right", -7, 12),
+        "Corrélation région ρr": ("right", -7, -2),
+    }
+    influential = data.filter(pl.col("decale_vraiment") | pl.col("elargit_vraiment"))
+    labels = [
+        alt.Chart(influential.filter(pl.col("parametre") == parameter))
+        .mark_text(
+            color=muted,
+            fontSize=9,
+            fontWeight=500,
+            align=align,
+            dx=dx,
+            dy=dy,
+        )
+        .encode(
+            x=x_enc,
+            y=y_enc,
+            text=alt.Text("parametre:N" if len(parties) == 1 else "etiquette:N"),
+        )
+        for parameter, (align, dx, dy) in label_positions.items()
+    ]
 
+    quiet_parameters = {
+        row["parti"]: ", ".join(row["etiquette"])
+        for row in (
+            data.filter(~(pl.col("decale_vraiment") | pl.col("elargit_vraiment")))
+            .sort("parametre")
+            .group_by("parti", maintain_order=True)
+            .agg("etiquette")
+            .iter_rows(named=True)
+        )
+    }
     quadrant_rows = []
     for party in parties:
-        party_noise = noise.filter(pl.col("parti") == party).row(0, named=True)
         quadrant_rows.extend(
             [
                 {
@@ -2343,8 +2390,8 @@ def parameter_influence_chart(
                 },
                 {
                     "parti": party,
-                    "x": 0.95 * party_noise["x_max"],
-                    "y": 0.95 * party_noise["y_max"],
+                    "x": 0.03 * x_limit,
+                    "y": 0.03 * y_limit,
                     "label": "Effet faible",
                     "position": "noise",
                 },
@@ -2385,10 +2432,10 @@ def parameter_influence_chart(
         zero_horizontal,
         zero_information,
         bubbles,
-        labels,
+        *labels,
         quadrant_labels("top_left", align="left", baseline="top"),
         quadrant_labels("top_right", align="right", baseline="top"),
-        quadrant_labels("noise", align="right", baseline="top"),
+        quadrant_labels("noise", align="left", baseline="bottom"),
         quadrant_labels("bottom_right", align="right", baseline="bottom"),
     ]
     panels = [
@@ -2398,12 +2445,26 @@ def parameter_influence_chart(
                 for layer in panel_layers
             )
         ).properties(
-            width=225,
-            height=280,
-            title=alt.TitleParams(party, anchor="middle", fontSize=12, fontWeight=600),
+            width=500 if len(parties) == 1 else 225,
+            height=340 if len(parties) == 1 else 280,
+            title=alt.TitleParams(
+                party,
+                subtitle=f"Sous le bruit : {quiet_parameters.get(party, '—')}",
+                anchor="middle",
+                fontSize=12,
+                fontWeight=600,
+                subtitleColor=muted,
+                subtitleFontSize=8,
+                subtitleFontStyle="italic",
+            ),
         )
         for party in parties
     ]
+    scope_subtitle = (
+        f"Sièges {parties[0]} · modèle {model} · rectangle gris : deux effets indiscernables du bruit."
+        if len(parties) == 1
+        else f"Modèle {model} · rectangle gris propre à chaque parti : deux effets indiscernables du bruit."
+    )
     chart = (
         alt.hconcat(*panels, spacing=14)
         .properties(
@@ -2411,7 +2472,7 @@ def parameter_influence_chart(
                 "text": "Quels paramètres déplacent ou élargissent la prévision ?",
                 "subtitle": [
                     "Position : amplitude observée entre les dix déciles. Taille : information injectée par le prior.",
-                    f"Modèle {model} · rectangle gris propre à chaque parti : deux effets indiscernables du bruit.",
+                    scope_subtitle,
                 ],
             },
         )

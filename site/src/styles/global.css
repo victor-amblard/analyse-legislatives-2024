@@ -11,8 +11,8 @@
   --ink: #16181d;
   --ink-muted: #5a616e;
   --rule: #e3e5ea;
-  --accent: #1f6f6b;
-  --accent-soft: #e8f2f1;
+  --accent: #432a70;
+  --accent-soft: #f0edf9;
   --hypothesis-surface: #f5f0e4;
   --hypothesis-border: #d6b96f;
   --sidenote-surface: #f1f2f4;
@@ -31,8 +31,8 @@
     --ink: #e9eaee;
     --ink-muted: #9aa2b1;
     --rule: #2b2f38;
-    --accent: #5cb8b1;
-    --accent-soft: #17302f;
+    --accent: #b09ce8;
+    --accent-soft: #221a33;
     --hypothesis-surface: #29251d;
     --hypothesis-border: #9c8249;
     --sidenote-surface: #202329;
@@ -45,8 +45,8 @@
   --ink: #e9eaee;
   --ink-muted: #9aa2b1;
   --rule: #2b2f38;
-  --accent: #5cb8b1;
-  --accent-soft: #17302f;
+  --accent: #b09ce8;
+  --accent-soft: #221a33;
   --hypothesis-surface: #29251d;
   --hypothesis-border: #9c8249;
   --sidenote-surface: #202329;
@@ -305,7 +305,17 @@ html { scroll-behavior: smooth; }
    conserve sa largeur. */
 @media (max-width: 42rem) {
   .prose figure:has(img[src*='simulation-pipeline']),
+  .prose figure:has(img[src*='national-local-mixing']),
+  .prose figure:has(img[src*='turnout-flows']),
   .prose figure:has(img[src*='preference-orderings']),
+  .prose figure:has(img[src*='prior-sankey']),
+  .prose figure:has(img[src*='withdrawals']),
+  .prose figure:has(img[src*='dirichlet-simplex']),
+  .prose figure:has(img[src*='tilt-effect']),
+  .prose figure:has(img[src*='expressed-share']),
+  .prose figure:has(img[src*='dominant-party']),
+  .prose figure:has(img[src*='district-expressed-error']),
+  .prose figure:has(img[src*='parameter-influence']),
   .prose figure:has(img[src*='prior-transfer-composition']),
   .prose figure:has(img[src*='pollster-intervals']),
   .prose figure:has(img[src*='pollster-vs-model']),
@@ -319,7 +329,17 @@ html { scroll-behavior: smooth; }
 
   .prose figure img:is(
     [src*='simulation-pipeline'],
+    [src*='national-local-mixing'],
+    [src*='turnout-flows'],
     [src*='preference-orderings'],
+    [src*='prior-sankey'],
+    [src*='withdrawals'],
+    [src*='dirichlet-simplex'],
+    [src*='tilt-effect'],
+    [src*='expressed-share'],
+    [src*='dominant-party'],
+    [src*='district-expressed-error'],
+    [src*='parameter-influence'],
     [src*='prior-transfer-composition'],
     [src*='pollster-intervals'],
     [src*='pollster-vs-model'],

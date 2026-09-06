@@ -1,4 +1,4 @@
-501 circonscriptions évaluées | N = 2000 tirages | modèle = national_anchored (ordinal)
+501 circonscriptions évaluées | N = 3000 tirages | modèle = national_anchored (ordinal)
 
 ==========================================================================
 NIVEAU NATIONAL
@@ -6,22 +6,22 @@ NIVEAU NATIONAL
 
    parti   réel   médiane          IC 90%   dans IC
      DIV     10        10   [    7 —    12]       oui
-    NFP+    181       203   [  155 —   236]       oui
+    NFP+    181       204   [  156 —   235]       oui
      DVG     12        13   [   11 —    14]       oui
-    ENS+    165       165   [  129 —   185]       oui
-      LR     39        36   [   19 —    45]       oui
-     DVD     27        24   [   17 —    30]       oui
-     RN+    143       131   [   80 —   197]       oui
+    ENS+    165       164   [  128 —   184]       oui
+      LR     39        36   [   19 —    44]       oui
+     DVD     27        24   [   18 —    30]       oui
+     RN+    143       130   [   83 —   198]       oui
 
   Energy score du vecteur de sièges (unité : sièges)
-    national                    :    18.03   (scénario médian seul : 25.44)
+    national                    :    18.42   (scénario médian seul : 26.80)
       → 1 seule observation : indicatif, non concluant.
 
   Région prédictive jointe du vecteur de sièges
-    résultat réel : score 17.76 | percentile d'éloignement 24.4%
-    région 50 % : dedans (seuil 24.30) | région 90 % : dedans (seuil 48.17)
+    résultat réel : score 18.20 | percentile d'éloignement 28.1%
+    région 50 % : dedans (seuil 23.36) | région 90 % : dedans (seuil 48.49)
 
-  Suffrages exprimés nationaux : réel 63.0 % | médiane 65.1 % | IC90 [55.7 — 74.0] | dans IC
+  Suffrages exprimés nationaux : réel 63.0 % | médiane 65.0 % | IC90 [55.5 — 73.6] | dans IC
 
 ==========================================================================
 PAR CIRCONSCRIPTION
@@ -29,25 +29,25 @@ PAR CIRCONSCRIPTION
 
   Score des partis qualifiés (% exprimés)  (1091 observations)
       niveau   couverture    largeur moyenne
-         50%        45.4%           3.90 pts  (trop confiant)
-         80%        71.2%           7.13 pts  (trop confiant)
-         90%        77.5%           8.86 pts  (trop confiant)
-         95%        81.9%          10.28 pts  (trop confiant)
-    PIT par décile (10 % attendu partout) : 15% 8% 9% 10% 9% 9% 9% 9% 9% 15%
+         50%        40.5%           3.76 pts  (trop confiant)
+         80%        68.2%           6.84 pts  (trop confiant)
+         90%        76.0%           8.48 pts  (trop confiant)
+         95%        79.7%           9.79 pts  (trop confiant)
+    PIT par décile (10 % attendu partout) : 16% 8% 9% 9% 8% 8% 8% 9% 9% 16%
 
   Taux de suffrages exprimés (% inscrits)  (501 observations)
       niveau   couverture    largeur moyenne
-         50%        78.4%           8.12 pts  (trop large)
-         80%        96.0%          15.43 pts  (trop large)
-         90%        98.6%          19.72 pts  (trop large)
-         95%        99.4%          23.36 pts  (trop large)
-    PIT par décile (10 % attendu partout) : 4% 10% 18% 20% 30% 15% 3% 0% 0% 0%
+         50%        77.4%           8.07 pts  (trop large)
+         80%        95.8%          15.37 pts  (trop large)
+         90%        98.6%          19.69 pts  (trop large)
+         95%        99.4%          23.37 pts  (trop large)
+    PIT par décile (10 % attendu partout) : 4% 11% 18% 21% 28% 15% 3% 0% 0% 0%
 
-  Vainqueur : 89.4% de circonscriptions correctes (448/501)
-    probabilité moyenne attribuée au vrai vainqueur : 85.1%
+  Vainqueur : 89.6% de circonscriptions correctes (449/501)
+    probabilité moyenne attribuée au vrai vainqueur : 85.2%
     calibration des probabilités de victoire (partis en lice) :
-      prédit 0%-20% : réalisé   2.3% (476 cas)
-      prédit 20%-40% : réalisé  32.1% (84 cas)
-      prédit 40%-60% : réalisé  50.8% (63 cas)
-      prédit 60%-80% : réalisé  67.9% (81 cas)
-      prédit 80%-101% : réalisé  97.2% (387 cas)
+      prédit 0%-20% : réalisé   2.1% (475 cas)
+      prédit 20%-40% : réalisé  33.0% (91 cas)
+      prédit 40%-60% : réalisé  51.0% (51 cas)
+      prédit 60%-80% : réalisé  66.7% (87 cas)
+      prédit 80%-101% : réalisé  97.4% (387 cas)

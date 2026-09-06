@@ -49,10 +49,15 @@ const { current } = Astro.props;
   }
 
   /* La langue active est signalée par le fond ET le poids du texte, pas par la
-     seule couleur. */
+     seule couleur.
+
+     Le fond est l'encre du texte, pas `--accent` : l'accent est volontairement
+     désaturé, et l'utiliser en grand aplat donnait une pastille beige portant
+     du blanc pur. Encre/surface donne le même repère avec un contraste franc
+     dans les deux thèmes, sans dépendre de la saturation de l'accent. */
   .on {
-    background: var(--accent);
-    color: var(--surface-raised);
+    background: var(--ink);
+    color: var(--surface);
     font-weight: 600;
   }
 

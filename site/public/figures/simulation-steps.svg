@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 886 536" role="img" aria-label="Cinq étapes d’une simulation dans la circonscription 0101."><style>
-    .surface{fill:#fbfbfc}.ink{fill:#16181d}.muted{fill:#5a616e}.accent{fill:#1f6f6b}
+    .surface{fill:#fbfbfc}.ink{fill:#16181d}.muted{fill:#5a616e}.accent{fill:#432a70}
     .hair{stroke:#d9dce2}.faint{stroke:#e8eaee}
     @media(prefers-color-scheme:dark){.surface{fill:#14161a}.ink{fill:#e9eaee}
-    .muted{fill:#9aa2b1}.accent{fill:#5cb8b1}.hair{stroke:#3a4049}.faint{stroke:#23262c}}
+    .muted{fill:#9aa2b1}.accent{fill:#b09ce8}.hair{stroke:#3a4049}.faint{stroke:#23262c}}
     text{font-family:ui-sans-serif,-apple-system,'Segoe UI',Roboto,sans-serif}
     @keyframes on0{0%,0.00%{opacity:.26}0.00%,20.00%{opacity:1}20.01%,100%{opacity:.26}}@keyframes on1{0%,19.99%{opacity:.26}20.00%,40.00%{opacity:1}40.01%,100%{opacity:.26}}@keyframes on2{0%,39.99%{opacity:.26}40.00%,60.00%{opacity:1}60.01%,100%{opacity:.26}}@keyframes on3{0%,59.99%{opacity:.26}60.00%,80.00%{opacity:1}80.01%,100%{opacity:.26}}@keyframes on4{0%,79.99%{opacity:.26}80.00%,100.00%{opacity:1}100.00%,100%{opacity:.26}}.on0{animation:on0 12.0s steps(1,end) infinite}.on1{animation:on1 12.0s steps(1,end) infinite}.on2{animation:on2 12.0s steps(1,end) infinite}.on3{animation:on3 12.0s steps(1,end) infinite}.on4{animation:on4 12.0s steps(1,end) infinite}
     @media(prefers-reduced-motion:reduce){.on0,.on1,.on2,.on3,.on4{animation:none;opacity:1}}

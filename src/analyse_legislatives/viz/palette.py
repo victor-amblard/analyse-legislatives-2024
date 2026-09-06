@@ -19,6 +19,30 @@ POLITICAL_FAMILY_COLORS: dict[str, str] = {
 """Couleur par grande tendance politique (7 blocs, voir
 config/party_families.json)."""
 
+# Les couleurs historiques ci-dessus fonctionnent bien comme aplats, mais les
+# plus claires disparaissent en traits fins sur fond blanc et le bleu RN+ se
+# perd sur fond sombre. Ces variantes conservent les mêmes teintes politiques
+# tout en assurant un contraste d'au moins 3:1 avec le fond des graphiques.
+CHART_COLORS_LIGHT: dict[str, str] = {
+    PoliticalFamily.RNx: "#0b5394",
+    PoliticalFamily.DIV: "#7055a5",
+    PoliticalFamily.LR: "#006dcc",
+    PoliticalFamily.NFPx: "#c94f4f",
+    PoliticalFamily.ENSx: "#8a6800",
+    PoliticalFamily.DVG: "#a94f57",
+    PoliticalFamily.DVD: "#527fa8",
+}
+
+CHART_COLORS_DARK: dict[str, str] = {
+    PoliticalFamily.RNx: "#5b9bd5",
+    PoliticalFamily.DIV: "#b0a0df",
+    PoliticalFamily.LR: "#55aaff",
+    PoliticalFamily.NFPx: "#ef8585",
+    PoliticalFamily.ENSx: "#f4cf5b",
+    PoliticalFamily.DVG: "#f0aaaa",
+    PoliticalFamily.DVD: "#afd3f3",
+}
+
 NUANCE_COLORS: dict[str, str] = {
     "EXG": "#ac2929",
     "RN": "#0b5394",
@@ -54,12 +78,23 @@ def color_for(party) -> str:
     return POLITICAL_FAMILY_COLORS.get(party, NEUTRAL_GREY)
 
 
+def chart_color_for(party, *, dark: bool = False) -> str:
+    """Couleur de parti suffisamment contrastée pour un trait ou un point."""
+    palette = CHART_COLORS_DARK if dark else CHART_COLORS_LIGHT
+    return palette.get(party, NEUTRAL_GREY)
+
+
+def chart_palette(*, dark: bool = False) -> dict[str, str]:
+    """Palette complète destinée aux échelles catégorielles des graphiques."""
+    return CHART_COLORS_DARK if dark else CHART_COLORS_LIGHT
+
+
 @dataclass(frozen=True)
 class ChartTheme:
     """Neutres d'un graphique, pour le thème actif du navigateur.
 
-    Les couleurs de PARTI ci-dessus ne dépendent pas du thème : elles portent une
-    identité politique, et l'inverser la détruirait. Les neutres, eux, doivent
+    Les teintes de parti gardent la même identité dans les deux thèmes, avec une
+    luminosité adaptée dans ``CHART_COLORS_*``. Les neutres doivent eux aussi
     suivre le fond — une ligne d'égalité noire disparaît en thème sombre.
 
     Ces valeurs sont posées AU NIVEAU DES MARQUES. C'est ce qui les rend

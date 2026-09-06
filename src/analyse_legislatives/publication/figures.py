@@ -2,6 +2,7 @@ from analyse_legislatives.config import PROJECT_ROOT
 from analyse_legislatives.publication.charts import write_classic_charts
 from analyse_legislatives.publication.illustrations import (
     build_national_local_mixing_svg,
+    build_non_expressed_anchored_svg,
     build_non_expressed_balance_svg,
     build_orderings_svg,
     build_prior_sankey_svg,
@@ -23,6 +24,7 @@ def main() -> None:
         "turnout-flows.svg": build_turnout_flows_svg,
         "national-local-mixing.svg": build_national_local_mixing_svg,
         "non-expressed-balance.svg": build_non_expressed_balance_svg,
+        "non-expressed-anchored.svg": build_non_expressed_anchored_svg,
     }
     for name, build in illustrations.items():
         path = OUTPUT_DIR / name

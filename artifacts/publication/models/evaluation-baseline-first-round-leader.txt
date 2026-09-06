@@ -1,0 +1,38 @@
+501 circonscriptions évaluées | modèle de référence « tête au 1er tour » (déterministe)
+
+==========================================================================
+NIVEAU NATIONAL
+==========================================================================
+
+   parti   réel   référence    écart
+     DIV     10           9       -1
+    NFP+    181         157      -24
+     DVG     12          12       +0
+    ENS+    165          68      -97
+      LR     39          16      -23
+     DVD     27          18       -9
+     RN+    143         297     +154
+
+  Energy score (= distance au résultat réel) :   185.23 sièges
+      aucune incertitude déclarée : la référence ne peut ni couvrir ni manquer un intervalle.
+
+==========================================================================
+PAR CIRCONSCRIPTION
+==========================================================================
+
+  Vainqueur : 65.1% de circonscriptions correctes (326/501)
+
+==========================================================================
+COMPARAISON AUX MODÈLES
+==========================================================================
+
+                modèle       ES   scénario médian   vainqueur
+    référence 1er tour   185.23            185.23       65.1%
+              national    17.98             25.00       89.6%
+     national_anchored    18.42             26.80       89.6%
+       kernel_anchored    15.61             22.91       89.8%
+
+  Les modèles ne battent la référence que s'ils font mieux que ces deux colonnes ;
+  leur valeur ajoutée propre est l'incertitude, que la référence ne fournit pas.
+
+Sièges de la référence écrits dans /Users/victoramblard/Documents/Perso/Projets/analyse-legislatives-2024/artifacts/publication/models/baseline-first-round-leader.csv
