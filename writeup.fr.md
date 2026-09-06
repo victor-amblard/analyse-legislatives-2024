@@ -462,7 +462,7 @@ En fin de compte, le flux net de votants pour un parti qualifié, par exemple le
 
 Ainsi, dans le cas de la circonscription 0101, en considérant par exemple $d=0{,}1$, le nombre d'électeurs de RN+ au second tour est donné par la formule :
 $$
-V_{RN+, 0101} = \underbrace{90\,\%}_{\text{10\,\% de démobilisation}}\times\underbrace{24330}_{\text{électeurs RN+ au premier tour}} + \text{reports d'autres partis}
+V_{RN+, 0101} = \underbrace{90\,\%}_{\text{10\,\% de démobilisation}}\times\underbrace{24330}_{\text{électeurs RN+ au premier tour}} + \text{reports d'autres partis} + \text{nouveaux votants}
 $$
 
 Plus le taux de démobilisation augmente, moins l'avance acquise au premier tour pèse par rapport aux reports de voix.
@@ -1335,6 +1335,6 @@ Ce choix produit naturellement des intervalles prédictifs larges, plus larges q
 Une information supplémentaire resserre les intervalles prédictifs. Autour de la bonne valeur si cette information est fiable, mais dans le cas contraire elle est susceptible de donner une illusion de précision. Les sondages en sont une source, mais la concordance entre les intentions de votes et les comportements réels des électeurs n'est jamais acquise, et la fiabilité de cette source n'est donc pas garantie.
 
 
-L'objectif de cette expérience n'était pas de produirea prévision le plus précis mais de montrer jusqu'où mènent les données du premier tour tout en rendant visibles les hypothèses choisies et l'incertitude qu'elles génèrent. S'appuyer simplement sur les données du 1er tour sans aucune hypothèse autre que le vainqueur du 2nd sera celui du 1er tour donne 65% de circonscriptions correctes contre 90% avec le modèle. Ajouter de l'information sur quelques paramètres bien choisis peut avoir un impact significatif sur la qualité de la prédiction, sans pour autant complexifier le modèle. 
+L'objectif de cette expérience n'était pas de produire la prévision le plus précise mais de montrer jusqu'où mènent les données du premier tour tout en rendant visibles les hypothèses choisies et l'incertitude qu'elles génèrent. Une règle naïve consistant à attribuer chaque siège au candidat qualifié arrivé en tête au 1er tour donne 65% de circonscriptions correctes contre 90% avec le modèle. Cet écart montre que quelques hypothèses ciblées qui viennent ajouter de l'information sur des paramètres bien choisis peuvent avoir un impact significatif sur la qualité de la prédiction, sans pour autant nécessiter des modèles très complexes.
 
 > Pour aller plus loin, vous pouvez consulter l'application [Streamlit](https://legislatives2024.vicstorm.ovh), ou le code disponible sur [GitHub](https://github.com/victor-amblard/analyse-legislatives-2024) que je vous encourage à regarder : il vous permet de modifier de nombreux paramètres (l'ordre de préférences par exemple) et d'en visualiser l'impact sur la projection.
