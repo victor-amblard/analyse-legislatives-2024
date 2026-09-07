@@ -39,6 +39,7 @@ from analyse_legislatives.config import (
 from analyse_legislatives.models import DEFAULT_MODEL
 from analyse_legislatives.parties import NON_EXPRIMES, SPECTRUM_LABELS
 from analyse_legislatives.viz import (
+    NEUTRAL_GREY,
     color_for,
     display_name,
     format_interval,
@@ -117,9 +118,13 @@ def national_expressed_share(digest: str, ids: tuple[str, ...]) -> pl.Series:
 
 
 def render_seat_metrics(
-    seats_by_simu: pl.DataFrame, median_seats: dict, *, dark: bool = False
+    seats_by_simu: pl.DataFrame,
+    median_seats: dict,
+    expressed_by_simu: pl.Series,
+    *,
+    dark: bool = False,
 ) -> None:
-    """Grille responsive : sept colonnes sur bureau, trois sur mobile."""
+    """Grille responsive des sièges et de la participation estimée."""
     cards = []
     for party in SPECTRUM_LABELS:
         color = label_color_for(party, dark=dark)
@@ -130,16 +135,26 @@ def render_seat_metrics(
             f'<div class="seat-score__value">{format_number(median_seats[party])}</div>'
             '<div class="seat-score__interval" '
             'title="Intervalle prédictif à 90 %">'
-            f'90 % : {format_interval(seats_by_simu[party], decimals=0)}</div>'
+            f'{format_interval(seats_by_simu[party], decimals=0)}</div>'
             "</div>"
         )
+    cards.append(
+        '<div class="seat-score seat-score--participation" '
+        f'style="--party-color:{NEUTRAL_GREY}">'
+        '<div class="seat-score__party">Participation estimée</div>'
+        f'<div class="seat-score__value">{expressed_by_simu.median():.1f} %</div>'
+        '<div class="seat-score__interval" '
+        'title="Intervalle prédictif à 90 % — suffrages exprimés parmi les inscrits">'
+        f"90 % : {format_interval(expressed_by_simu, ' %')}</div>"
+        "</div>"
+    )
 
     st.html(
         f"""
         <style>
           .seat-scores {{
             display: grid;
-            grid-template-columns: repeat(7, minmax(0, 1fr));
+            grid-template-columns: repeat(8, minmax(0, 1fr));
             gap: 0.8rem;
             margin-bottom: 1rem;
           }}
@@ -185,6 +200,7 @@ def render_seat_metrics(
             .seat-score__party {{ font-size: 0.75rem; }}
             .seat-score__value {{ font-size: 1.45rem; }}
             .seat-score__interval {{ font-size: 0.66rem; }}
+            .seat-score--participation {{ grid-column: span 2; }}
           }}
         </style>
         <div class="seat-scores">{''.join(cards)}</div>
@@ -193,10 +209,17 @@ def render_seat_metrics(
     )
 
 
-def render_seat_panel(seats_by_simu: pl.DataFrame, *, dark: bool = False) -> None:
+def render_seat_panel(
+    seats_by_simu: pl.DataFrame,
+    expressed_by_simu: pl.Series,
+    *,
+    dark: bool = False,
+) -> None:
     """Métriques par parti + hémicycle du scénario le plus représentatif."""
     median_seats = projections.median_scenario_seats(seats_by_simu)
-    render_seat_metrics(seats_by_simu, median_seats, dark=dark)
+    render_seat_metrics(
+        seats_by_simu, median_seats, expressed_by_simu, dark=dark
+    )
     hemicycle_svg, hemicycle_legend = render_hemicycle(median_seats, dark=dark)
     with st.container(horizontal_alignment="center"):
         st.image(hemicycle_svg, width=760)
@@ -230,8 +253,9 @@ tab_national, tab_circo = st.tabs(
 
 with tab_national:
     seats_by_simu = national_seats(digest, artifact_ids)
+    expressed_by_simu = national_expressed_share(digest, artifact_ids)
     st.subheader("Projection des sièges")
-    render_seat_panel(seats_by_simu, dark=dark_theme)
+    render_seat_panel(seats_by_simu, expressed_by_simu, dark=dark_theme)
 
     st.subheader("Qui arrive en tête ?")
     st.caption(
@@ -243,23 +267,14 @@ with tab_national:
     )
 
     st.subheader("Participation simulée")
-    expressed_by_simu = national_expressed_share(digest, artifact_ids)
-    with st.container(border=True):
-        col_metric, col_chart = st.columns([1, 2], gap="medium", wrap=True)
-        with col_metric:
-            st.metric(
-                "Taux de suffrages exprimés national simulé (2nd tour)",
-                f"{expressed_by_simu.median():.1f} %",
-            )
-            st.caption(
-                "Intervalle prédictif à 90 % : "
-                f"{format_interval(expressed_by_simu, ' %')}"
-            )
-        with col_chart:
-            st.altair_chart(
-                render_expressed_share_chart(bin_series(expressed_by_simu)),
-                width="stretch",
-            )
+    with st.container(border=True, horizontal_alignment="center"):
+        st.caption(
+            "Distribution du taux national de suffrages exprimés dans les "
+            f"{format_number(len(expressed_by_simu))} simulations."
+        )
+        st.altair_chart(
+            render_expressed_share_chart(bin_series(expressed_by_simu)), width=760
+        )
 
     st.subheader("Sensibilité de la projection à la participation")
     conditional_prediction = projections.conditional_seats_by_non_expressed(
