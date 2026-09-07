@@ -135,7 +135,7 @@ def render_seat_metrics(
             f'<div class="seat-score__value">{format_number(median_seats[party])}</div>'
             '<div class="seat-score__interval" '
             'title="Intervalle prédictif à 90 %">'
-            f'{format_interval(seats_by_simu[party], decimals=0)}</div>'
+            f"{format_interval(seats_by_simu[party], decimals=0)}</div>"
             "</div>"
         )
     cards.append(
@@ -217,9 +217,7 @@ def render_seat_panel(
 ) -> None:
     """Métriques par parti + hémicycle du scénario le plus représentatif."""
     median_seats = projections.median_scenario_seats(seats_by_simu)
-    render_seat_metrics(
-        seats_by_simu, median_seats, expressed_by_simu, dark=dark
-    )
+    render_seat_metrics(seats_by_simu, median_seats, expressed_by_simu, dark=dark)
     hemicycle_svg, hemicycle_legend = render_hemicycle(median_seats, dark=dark)
     with st.container(horizontal_alignment="center"):
         st.image(hemicycle_svg, width=760)
