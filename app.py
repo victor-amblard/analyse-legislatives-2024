@@ -154,9 +154,10 @@ def render_seat_panel(seats_by_simu: pl.DataFrame, *, dark: bool = False) -> Non
     """Métriques par parti + hémicycle du scénario le plus représentatif."""
     median_seats = projections.median_scenario_seats(seats_by_simu)
     render_seat_metrics(seats_by_simu, median_seats, dark=dark)
+    hemicycle_svg, hemicycle_legend = render_hemicycle(median_seats, dark=dark)
     with st.container(horizontal_alignment="center"):
-        # Streamlit plafonne cette largeur à celle du parent sur petit écran.
-        st.altair_chart(render_hemicycle(median_seats, dark=dark), width=760)
+        st.image(hemicycle_svg, width=760)
+        st.html(hemicycle_legend, width=760)
 
 
 st.set_page_config(page_title="Législatives 2024 — projections", layout="wide")

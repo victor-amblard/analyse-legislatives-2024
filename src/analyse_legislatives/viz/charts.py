@@ -7,6 +7,8 @@ réutilisables depuis les notebooks. L'app se contente de les afficher.
 """
 
 from collections.abc import Mapping
+from html import escape
+
 import altair as alt
 import numpy as np
 import pandas as pd
@@ -876,30 +878,72 @@ def hemicycle_positions(
     return pd.DataFrame({"x": xs, "y": ys, "party": parties})
 
 
-def render_hemicycle(seats_per_party: Mapping[str, int], *, dark: bool = False):
-    return (
-        alt.Chart(hemicycle_positions(seats_per_party))
-        .mark_circle(
-            # L'aire diminue avec le carré de la largeur : le diamètre des
-            # sièges suit donc la largeur disponible sans devenir illisible.
-            size=alt.ExprRef(expr="clamp(width * width / 4800, 24, 120)")
+def render_hemicycle(
+    seats_per_party: Mapping[str, int], *, dark: bool = False
+) -> tuple[str, str]:
+    """Hémicycle SVG dont le rapport d'aspect reste stable sur mobile.
+
+    Un graphique Altair de hauteur fixe se rétrécit horizontalement dans
+    Streamlit quand l'écran devient étroit, mais conserve ses 400 px de haut :
+    les deux échelles n'ont alors plus le même facteur et le demi-cercle est
+    déformé. Le ``viewBox`` SVG met ici les deux coordonnées dans le même repère
+    et laisse le navigateur réduire largeur *et* hauteur ensemble.
+    """
+    positions = hemicycle_positions(seats_per_party)
+    total_seats = int(sum(seats_per_party.values()))
+    theme = chart_theme(dark)
+
+    points = []
+    for point in positions.itertuples(index=False):
+        party = str(point.party)
+        points.append(
+            f'<circle cx="{point.x:.4f}" cy="{-point.y:.4f}" r="0.14" '
+            f'fill="{chart_color_for(party, dark=dark)}" '
+            f'stroke="{theme.halo}" stroke-width="0.035">'
+            f"<title>{escape(party)}</title></circle>"
         )
-        .encode(
-            x=alt.X("x:Q", axis=None, scale=alt.Scale(domain=[-11, 11])),
-            y=alt.Y("y:Q", axis=None, scale=alt.Scale(domain=[-0.5, 10.5])),
-            color=alt.Color(
-                "party:N",
-                scale=alt.Scale(
-                    domain=SPECTRUM_LABELS,
-                    range=[chart_color_for(p, dark=dark) for p in SPECTRUM_LABELS],
-                ),
-                legend=alt.Legend(title="Parti"),
-            ),
-            tooltip=["party:N"],
-        )
-        .properties(height=400)
-        .configure_view(strokeWidth=0)
+
+    legend = "".join(
+        '<span class="hemicycle-legend__item">'
+        f'<span class="hemicycle-legend__swatch" style="background:{chart_color_for(party, dark=dark)}"></span>'
+        f"{escape(party)}</span>"
+        for party in SPECTRUM_LABELS
     )
+
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="-11 -10.5 22 11.2"
+         role="img" aria-label="Répartition des {total_seats} sièges du scénario médian par parti">
+      {''.join(points)}
+    </svg>"""
+    legend_html = f"""
+    <style>
+      .hemicycle-legend {{
+        width: min(100%, 760px);
+        margin: 0 auto;
+        color: {theme.ink};
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.35rem 0.85rem;
+        margin-top: 0.55rem;
+        font-size: 0.78rem;
+        line-height: 1.2;
+      }}
+      .hemicycle-legend__item {{
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        white-space: nowrap;
+      }}
+      .hemicycle-legend__swatch {{
+        width: 0.65rem;
+        height: 0.65rem;
+        border-radius: 50%;
+        box-shadow: 0 0 0 1px {theme.halo};
+      }}
+    </style>
+    <div class="hemicycle-legend" aria-label="Légende des partis">{legend}</div>
+    """
+    return svg, legend_html
 
 
 def _hex_to_rgba(hex_color: str, alpha: float = 0.45) -> str:

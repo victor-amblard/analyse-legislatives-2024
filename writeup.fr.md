@@ -32,7 +32,7 @@ Tout le code des modèles et des expériences est disponible [sur GitHub](https:
 Les résultats peuvent être publiés tels quels ou intégrés à des projections (en sièges ou en pourcentage), souvent accompagnées de _marges d'erreur_[^2] qui découlent souvent de la combinaison de sondages et de modèles statistiques.
 [^2]: Ces marges d'erreur sont parfois aussi appelées "intervalles de confiance" par les instituts.
 
-Entre les deux tours des élections législatives de 2024, j'ai été frappé par l'étroitesse des marges d'erreur publiées. Sur l'illustration ci-dessous, on peut constater qu'aucune des quatre dernières projections publiées quelques jours avant le second tour ne contient le résultat de RN+ au niveau national.
+Entre les deux tours des élections législatives de 2024, j'ai été frappé par l'étroitesse des marges d'erreur publiées. Sur l'illustration ci-dessous, on peut constater qu'aucune des quatre dernières projections publiées quelques jours avant le second tour ne contient le résultat du RN et alliés au niveau national.
 
 <figure>
   <picture>
