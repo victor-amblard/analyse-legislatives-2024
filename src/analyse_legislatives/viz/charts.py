@@ -45,7 +45,7 @@ def bin_series(series: pl.Series, n_bins: int = 30) -> pd.DataFrame:
     return binned.groupby(["bin_low", "bin_high"], as_index=False).size()
 
 
-def render_expressed_share_chart(binned_df: pd.DataFrame, title: str):
+def render_expressed_share_chart(binned_df: pd.DataFrame):
     """Histogramme des suffrages exprimés nationaux simulés."""
     return (
         alt.Chart(binned_df)
@@ -53,10 +53,12 @@ def render_expressed_share_chart(binned_df: pd.DataFrame, title: str):
         .encode(
             x=alt.X(
                 "bin_low:Q",
-                title="Taux de suffrages exprimés national simulé (% inscrits, 2nd tour)",
+                title="Suffrages exprimés (% des inscrits)",
+                axis=alt.Axis(tickCount=5),
+                scale=alt.Scale(zero=False),
             ),
             x2="bin_high:Q",
-            y=alt.Y("size:Q", title="Nombre de simulations"),
+            y=alt.Y("size:Q", title="Simulations", axis=alt.Axis(tickCount=4)),
             color=alt.value("#4C78A8"),
             tooltip=[
                 alt.Tooltip("bin_low:Q", title="De (%)", format=".1f"),
@@ -64,7 +66,8 @@ def render_expressed_share_chart(binned_df: pd.DataFrame, title: str):
                 alt.Tooltip("size:Q", title="Simulations"),
             ],
         )
-        .properties(height=220, title=title)
+        .properties(height=190)
+        .configure_view(strokeWidth=0)
     )
 
 

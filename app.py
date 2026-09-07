@@ -119,35 +119,78 @@ def national_expressed_share(digest: str, ids: tuple[str, ...]) -> pl.Series:
 def render_seat_metrics(
     seats_by_simu: pl.DataFrame, median_seats: dict, *, dark: bool = False
 ) -> None:
-    """Une colonne de métrique par parti : sièges du scénario médian, et
-    intervalle à 90% en dessous.
+    """Grille responsive : sept colonnes sur bureau, trois sur mobile."""
+    cards = []
+    for party in SPECTRUM_LABELS:
+        color = label_color_for(party, dark=dark)
+        cards.append(
+            '<div class="seat-score" '
+            f'style="--party-color:{color}">'
+            f'<div class="seat-score__party">{display_name(party)}</div>'
+            f'<div class="seat-score__value">{format_number(median_seats[party])}</div>'
+            '<div class="seat-score__interval" '
+            'title="Intervalle prédictif à 90 %">'
+            f'90 % : {format_interval(seats_by_simu[party], decimals=0)}</div>'
+            "</div>"
+        )
 
-    Le nom du parti est rendu SÉPARÉMENT de la métrique, et celle-ci masque son
-    propre libellé. Colorer le libellé de `st.metric` demanderait de viser sa
-    structure interne au sélecteur CSS, qui n'est pas une interface stable et
-    que Streamlit surcharge déjà ; l'écrire soi-même rend la couleur certaine.
-
-    La couleur vient de `label_color_for` et non de `color_for` : les couleurs
-    de marque sont faites pour des aplats, et plusieurs — le jaune d'`ENS+`, le
-    bleu pâle de `DVD` — tombent sous 2:1 en texte, donc illisibles.
-    """
-    for col, party in zip(
-        st.columns(len(SPECTRUM_LABELS), gap="small"), SPECTRUM_LABELS
-    ):
-        with col:
-            st.markdown(
-                f"<div style='color:{label_color_for(party, dark=dark)};"
-                "font-weight:700;font-size:0.85rem;line-height:1.2;"
-                f"min-height:2.4em'>{display_name(party)}</div>",
-                unsafe_allow_html=True,
-            )
-            st.metric(
-                display_name(party),
-                format_number(median_seats[party]),
-                format_interval(seats_by_simu[party], decimals=0),
-                delta_color="off",
-                label_visibility="collapsed",
-            )
+    st.html(
+        f"""
+        <style>
+          .seat-scores {{
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+          }}
+          .seat-score {{
+            min-width: 0;
+            padding: 0.65rem 0.7rem 0.6rem;
+            background: color-mix(in srgb, var(--party-color) 8%, transparent);
+            border-top: 0.22rem solid var(--party-color);
+            border-radius: 0.3rem;
+          }}
+          .seat-score__party {{
+            min-height: 2.4em;
+            color: var(--party-color);
+            font-size: 0.82rem;
+            font-weight: 700;
+            line-height: 1.2;
+          }}
+          .seat-score__value {{
+            margin-top: 0.2rem;
+            font-size: 1.65rem;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.15;
+          }}
+          .seat-score__interval {{
+            margin-top: 0.25rem;
+            overflow: hidden;
+            font-size: 0.72rem;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.2;
+            opacity: 0.72;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }}
+          @media (max-width: 900px) {{
+            .seat-scores {{ grid-template-columns: repeat(4, minmax(0, 1fr)); }}
+          }}
+          @media (max-width: 640px) {{
+            .seat-scores {{
+              grid-template-columns: repeat(3, minmax(0, 1fr));
+              gap: 0.55rem;
+            }}
+            .seat-score {{ padding: 0.55rem 0.55rem 0.5rem; }}
+            .seat-score__party {{ font-size: 0.75rem; }}
+            .seat-score__value {{ font-size: 1.45rem; }}
+            .seat-score__interval {{ font-size: 0.66rem; }}
+          }}
+        </style>
+        <div class="seat-scores">{''.join(cards)}</div>
+        """,
+        width="stretch",
+    )
 
 
 def render_seat_panel(seats_by_simu: pl.DataFrame, *, dark: bool = False) -> None:
@@ -207,15 +250,14 @@ with tab_national:
             st.metric(
                 "Taux de suffrages exprimés national simulé (2nd tour)",
                 f"{expressed_by_simu.median():.1f} %",
-                format_interval(expressed_by_simu, " %"),
-                delta_color="off",
+            )
+            st.caption(
+                "Intervalle prédictif à 90 % : "
+                f"{format_interval(expressed_by_simu, ' %')}"
             )
         with col_chart:
             st.altair_chart(
-                render_expressed_share_chart(
-                    bin_series(expressed_by_simu),
-                    "Distribution des suffrages exprimés nationaux simulés",
-                ),
+                render_expressed_share_chart(bin_series(expressed_by_simu)),
                 width="stretch",
             )
 
