@@ -755,7 +755,7 @@ def demobilisation_sensitivity_chart(*, dark: bool = False) -> alt.Chart:
 
 
 def seat_results_chart(*, dark: bool = False) -> alt.Chart:
-    """Marginal seat intervals for the three published model variants."""
+    """Marginal seat intervals, naïve baseline and observed result."""
     model_labels = {
         "national": "National",
         "national_anchored": "National ancré",
@@ -769,17 +769,32 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
         ignore_index=True,
     )
     data["model_label"] = data["model"].map(model_labels)
+    reference_label = "Référence naïve"
+    reference_data = pd.read_csv(RESULTS_DIR / "baseline-first-round-leader.csv")
+    reference_data["model_label"] = reference_label
 
     parties = ["NFP+", "DVG", "ENS+", "LR", "DVD", "RN+", "DIV"]
-    models = list(model_labels.values())
+    models = [*model_labels.values(), reference_label]
     colours = (
-        ["#35a98d", "#4c96ee", "#d58a45"] if dark else ["#1f8a70", "#2a78d6", "#b56824"]
+        ["#35a98d", "#4c96ee", "#d58a45", "#aeb4c0"]
+        if dark
+        else ["#1f8a70", "#2a78d6", "#b56824", "#5a616e"]
     )
     colour = alt.Color(
         "model_label:N",
         title=None,
         sort=models,
         scale=alt.Scale(domain=models, range=colours),
+        legend=alt.Legend(orient="top", direction="horizontal"),
+    )
+    shape = alt.Shape(
+        "model_label:N",
+        title=None,
+        sort=models,
+        scale=alt.Scale(
+            domain=models,
+            range=["circle", "circle", "circle", "cross"],
+        ),
         legend=alt.Legend(orient="top", direction="horizontal"),
     )
     shared = {
@@ -802,7 +817,8 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
             alt.Tooltip("actual:Q", title="Résultat réel", format=".0f"),
         ],
     }
-    x = alt.X("p05:Q", title="Sièges", scale=alt.Scale(domain=[0, 280]))
+    seat_scale = alt.Scale(domain=[0, 320])
+    x = alt.X("p05:Q", title="Sièges", scale=seat_scale)
     interval_90 = (
         alt.Chart(data)
         .mark_rule(strokeWidth=3, opacity=0.78, strokeCap="round")
@@ -811,9 +827,7 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
     interval_50 = (
         alt.Chart(data)
         .mark_rule(strokeWidth=9, opacity=0.92, strokeCap="round")
-        .encode(
-            x=alt.X("p25:Q", scale=alt.Scale(domain=[0, 280])), x2="p75:Q", **shared
-        )
+        .encode(x=alt.X("p25:Q", scale=seat_scale), x2="p75:Q", **shared)
     )
     medians = (
         alt.Chart(data)
@@ -823,13 +837,51 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
             stroke="#14161a" if dark else "#fbfbfc",
             strokeWidth=1,
         )
-        .encode(x=alt.X("median:Q", scale=alt.Scale(domain=[0, 280])), **shared)
+        .encode(x=alt.X("median:Q", scale=seat_scale), shape=shape, **shared)
+    )
+    reference = (
+        alt.Chart(reference_data)
+        .mark_point(
+            filled=False,
+            size=82,
+            strokeWidth=2,
+        )
+        .encode(
+            x=alt.X("baseline_seats:Q", scale=seat_scale),
+            y=shared["y"],
+            yOffset=alt.YOffset("model_label:N", sort=models),
+            color=colour,
+            shape=shape,
+            tooltip=[
+                alt.Tooltip("party:N", title="Groupe"),
+                alt.Tooltip("model_label:N", title="Modèle"),
+                alt.Tooltip(
+                    "baseline_seats:Q", title="Sièges de référence", format=".0f"
+                ),
+            ],
+        )
     )
     actual_data = data[["party", "actual"]].drop_duplicates()
     actual_tooltip = [
         alt.Tooltip("party:N", title="Groupe"),
         alt.Tooltip("actual:Q", title="Résultat réel", format=".0f"),
     ]
+    actual_guides = (
+        alt.Chart(actual_data)
+        .mark_tick(
+            orient="vertical",
+            size=58,
+            thickness=1.3,
+            strokeDash=[4, 3],
+            color="#e9eaee" if dark else "#16181d",
+            opacity=0.72,
+        )
+        .encode(
+            x=alt.X("actual:Q", scale=seat_scale),
+            y=shared["y"],
+            tooltip=actual_tooltip,
+        )
+    )
     actuals = (
         alt.Chart(actual_data)
         .mark_point(
@@ -841,7 +893,7 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
             strokeWidth=1,
         )
         .encode(
-            x=alt.X("actual:Q", scale=alt.Scale(domain=[0, 280])),
+            x=alt.X("actual:Q", scale=seat_scale),
             y=shared["y"],
             tooltip=actual_tooltip,
         )
@@ -858,13 +910,19 @@ def seat_results_chart(*, dark: bool = False) -> alt.Chart:
             fontWeight=600,
         )
         .encode(
-            x=alt.X("actual:Q", scale=alt.Scale(domain=[0, 280])),
+            x=alt.X("actual:Q", scale=seat_scale),
             y=shared["y"],
             text=alt.Text("actual:Q", format=".0f"),
         )
     )
     chart = alt.layer(
-        interval_90, interval_50, medians, actuals, actual_labels
+        interval_90,
+        interval_50,
+        medians,
+        reference,
+        actual_guides,
+        actuals,
+        actual_labels,
     ).properties(width=650, height=76 * len(parties))
     return _style(chart, dark=dark)
 

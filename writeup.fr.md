@@ -51,7 +51,7 @@ Entre les deux tours des élections législatives de 2024, j'ai été frappé pa
 
 Bien entendu, une seule élection ne suffit pas à conclure. Le cas n'est toutefois pas isolé : aux législatives de 2022, le nombre de sièges de la NUPES s'est également trouvé hors de plusieurs fourchettes publiées.
 
-À mon sens, le problème n'est pas qu'une prévision puisse se tromper mais que des marges d'erreur trop étroites donnent une fausse impression de confiance dans ces prévisions. Elles devraient représenter ce que le modèle statistique n'arrive pas à prévoir des comportements humains, mais parfois trop d'information qui se révèle _a posteriori_ erronée est incorporée dans ces modèles : les intentions déclarées ne prédisent pas correctement le comportement électoral effectif...
+À mon sens, le problème n'est pas qu'une prévision puisse se tromper mais que des marges d'erreur trop étroites donnent une fausse impression de confiance dans ces prévisions, ensuite abondamment reprises sur les plateaux télévisés. Elles devraient représenter ce que le modèle statistique n'arrive pas à prévoir des comportements humains, mais parfois trop d'information qui se révèle _a posteriori_ erronée est incorporée dans ces modèles : les intentions déclarées ne prédisent pas correctement le comportement électoral effectif...
 
 ### Mieux vaut être incertain que faussement précis
 
@@ -80,6 +80,7 @@ Une des spécificités des élections législatives de 2024 a été l'alliance d
 
 <details>
 <summary>Tableau de correspondance entre codes officiels et notations du post</summary>
+
 Le tableau suivant donne la correspondance entre les notations utilisées par la suite et les codes officiels du ministère de l'Intérieur.
 
 | Notation | Étiquettes Min. Intérieur |
@@ -350,6 +351,7 @@ Pour le réservoir `ENS+` (2e ligne), les préférences supposées imposent un t
 
 <details>
 <summary>Détail sur la distribution de Dirichlet choisie</summary>
+
 Une ligne de la matrice est un partage d'un même réservoir : ses composantes sont
 positives et leur somme vaut 1. Le modèle tire donc un poids Gamma indépendant par
 destination, puis divise chaque poids par la somme des poids. Cette construction standard
@@ -423,6 +425,7 @@ Un taux national de démobilisation $d$ est tiré une fois par simulation et par
 
 <details>
 <summary>Hyperparamètres du taux de démobilisation</summary>
+
 Le prior est une distribution bêta dont la moyenne est très basse (5 %) et l'intervalle central à 90 % vaut $\left[0{,}9\,\%, 11{,}7\,\%\right]$.
 
 $$
@@ -567,7 +570,7 @@ Flux 1 pour la circonscription 0101
 </figcaption>
 </figure>
 
-##### 2. Tirage du flux 2 (partis qualifié -> partis qualifiés + abstention)
+##### 2. Tirage du flux 2 (partis qualifiés -> partis qualifiés + abstention)
 
 Ensuite, le modèle tire un taux de démobilisation par exemple de 4%, on obtient donc : 
 <figure>
@@ -654,6 +657,7 @@ Cette hypothèse est assez peu réaliste, je montrerai par la suite comment adap
 
 <details>
 <summary>Résumé mathématique du modèle</summary>
+
 Le modèle cherche à estimer $Y$, le nombre de sièges par parti, à partir de $X$, les
 résultats du premier tour. 
 Il s'appuie sur deux variables _latentes_ nationales : la matrice de report $T$ et le
@@ -729,6 +733,7 @@ Et sur plusieurs tirages, la distribution prédictive apparaît progressivement 
 
 <details>
 <summary>Détails formels de la simulation</summary>
+
 La simulation découle naturellement de la décomposition de $p(Y\mid X)$ décrite dans la partie précédente :
 
 - on échantillonne les taux de report $T\sim p(T)$ ;
@@ -1093,13 +1098,15 @@ La figure ci-dessous résume les projections obtenues par les trois variantes de
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="/figures/seat-results-dark.svg" />
   <img src="/figures/seat-results.svg"
-       alt="Intervalles de prédiction centraux à 50 et 90 % du nombre de sièges par groupe politique. Les modèles `national`, `national_ancré` et `local_ancré` sont empilés verticalement ; les points indiquent les médianes et les losanges noirs le résultat réel de 2024." />
+       alt="Intervalles de prédiction centraux à 50 et 90 % du nombre de sièges par groupe politique. Les modèles `national`, `national_ancré` et `local_ancré` sont empilés verticalement ; les points colorés indiquent les médianes, les croix grises la référence naïve, et les lignes pointillées et losanges noirs le résultat réel de 2024." />
   </picture>
   <figcaption>
     Le trait fin représente l'intervalle de prédiction central à 90 % et le trait
     épais l'intervalle central à 50 %. Le point est la médiane marginale ; le
-    losange noir et le trait pointillé indiquent le résultat réel des élections. Les trois
-    variantes sont empilées par groupe.
+    croix grise correspond à la règle de référence « tête au premier tour » ;
+    elle n'a pas d'intervalle puisqu'elle ne modélise aucune incertitude. Le
+    losange noir et la ligne verticale pointillée indiquent le résultat réel des élections.
+    Les trois variantes et la référence sont empilées par groupe.
   </figcaption>
 </figure>
 
@@ -1191,11 +1198,10 @@ qualifié arrivé en tête au premier tour est déclaré vainqueur du second) pe
 Les colonnes vides de la référence ne sont pas des valeurs manquantes : cette
 règle ne prédit que des vainqueurs, jamais des voix, et ne déclare aucune
 incertitude. Elle n'a donc ni score de candidat, ni part de suffrages exprimés, ni
-intervalle à couvrir[^15]. Elle rate 175 circonscriptions sur 501 et donne 297
+intervalle à couvrir. Elle rate 175 circonscriptions sur 501 et donne 297
 sièges à `RN+` pour 143 réels : sur le vecteur de sièges, les modèles divisent son
 erreur par douze.
 
-[^15]: Son energy score se réduit à la distance euclidienne entre son vecteur de sièges et le résultat réel : une prévision déterministe est une masse de Dirac, dont le terme de dispersion est nul. C'est ce qui permet de la placer dans la même colonne que les modèles simulés.
 
 La couverture est calculée sur les 1 091 scores de candidats qualifiés et les
 501 circonscriptions de 2024.
@@ -1249,9 +1255,7 @@ Le modèle montre une forte corrélation négative des sièges entre `ENS+` et `
   <figcaption>
     Trois projections de la même distribution jointe sous
     <code>local ancré</code>. Les cases foncées contiennent davantage de
-    simulations et le losange est le résultat réel. Une projection deux à deux ne
-    montre pas toute la loi en sept dimensions, mais elle rend visibles les
-    dépendances que sept intervalles marginaux masqueraient.
+    simulations et le losange est le résultat réel.
   </figcaption>
 </figure>
 

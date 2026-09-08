@@ -310,12 +310,13 @@ with tab_national:
             non_expressed_by_simu = 100 - expressed_by_simu
             selected = (non_expressed_by_simu >= lo) & (non_expressed_by_simu < hi)
             conditional_seats = seats_by_simu.filter(selected)
+            conditional_expressed = expressed_by_simu.filter(selected)
 
             st.markdown(f"**Projection pour {lo:.0f} à {hi:.0f} % de non-exprimés**")
             st.caption(
                 f"{len(conditional_seats)} simulations sur {len(seats_by_simu)}."
             )
-            render_seat_panel(conditional_seats, dark=dark_theme)
+            render_seat_panel(conditional_seats, conditional_expressed, dark=dark_theme)
         else:
             st.caption("Sélectionnez un point du graphique pour détailler sa tranche.")
 
